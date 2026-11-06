@@ -7,7 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
@@ -67,7 +67,7 @@ export default function FlappyErenGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const cat = useCat()
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('flappy_eren')
   const reduced = useReducedMotion()
   const idle = useErenIdle()
   const rx = useErenReaction()
@@ -112,7 +112,6 @@ export default function FlappyErenGame() {
   const [redFlashKey, setRedFlashKey] = useState(0)
   const [banner, setBanner]       = useState<ThemeBanner | null>(null)
   const [milestoneKey, setMilestoneKey] = useState<number | null>(null)
-  const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const lastThemeIndexRef = useRef(0)
   const milestonesHitRef  = useRef<Set<number>>(new Set())
   const prevBestRef = useRef(0)
@@ -383,7 +382,7 @@ export default function FlappyErenGame() {
     setBanner(null)
     setMilestoneKey(null)
     setIsNewBest(false)
-    setReward(null)
+    clearReward()
     stateRef.current = 'running'
     setState('running')
     rafRef.current = requestAnimationFrame(loop)
@@ -430,7 +429,7 @@ export default function FlappyErenGame() {
 
     // Coins + high-score save run on EVERY finished run via the shared reward
     // hook — the participation floor pays even on a 0-pipe crash.
-    setReward(reportGameResult({ gameType: 'flappy_eren', score: finalScore }))
+    reportGameResult({ gameType: 'flappy_eren', score: finalScore })
 
     if (user?.id) {
       // Daily-game credit fires on ANY finished run — even a 0-score one counts
@@ -715,7 +714,7 @@ export default function FlappyErenGame() {
             { label: 'Best', value: displayBest },
             { label: 'Reached', value: themeLabel },
           ]}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); reset() }}
           onBack={() => { playSound('ui_back'); router.back() }}
         />

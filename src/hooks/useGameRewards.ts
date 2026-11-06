@@ -1,76 +1,102 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/useAuth'
-import { useErenStats } from '@/hooks/useErenStats'
-import { useTasks } from '@/contexts/TaskContext'
-import { coinsForGame, EXHAUSTED_ENERGY } from '@/lib/gameRewards'
+import { useAuth, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from '@/hooks/useAuth'
+import { onForeground } from '@/lib/onForeground'
+import { prepareGameResult, pendingGameSaves, saveGameResult, validGameResult, gameSaveError, GAME_SAVED_EVENT, type ReportGameResultOpts } from '@/lib/gameSaves'
+import type { PendingSavedRequest } from '@/lib/savedRpc'
 import type { GameType } from '@/types'
 
-export interface ReportGameResultOpts {
-  gameType: GameType
-  /** Final score for this run. */
-  score: number
-  /** For win/loss games (tic-tac-toe): did the player win this match? */
-  won?: boolean
-  /** Force whether the high score is saved. Defaults to score > 0. */
-  saveScore?: boolean
-}
-
+export type { ReportGameResultOpts } from '@/lib/gameSaves'
 export interface GameRewardResult {
-  /** Coins actually awarded (0 when energy-blocked). */
-  coins: number
-  /** True when Eren is too exhausted (energy < 30) to award coins. */
-  blocked: boolean
-  /** Energy reading used for the decision. */
-  energy: number
+  requestId: string
+  status: 'saving' | 'error' | 'saved'
+  coins: number; blocked: boolean; energy: number; balance: number; scoreSaved?: boolean; error?: string
 }
 
-/**
- * One call per finished run. Computes the coin payout synchronously (so the
- * finish overlay can render `coins`/`blocked` immediately), then fires the
- * coin credit + high-score save in the background.
- *
- * Coins are gated on Eren's energy — a tired cat can't cheer — but the high
- * score is ALWAYS saved (energy-independent) so records are never lost.
- */
-export function useGameRewards() {
+/** Confirm score + wallet together. Each new round keeps its own recoverable receipt. */
+export function useGameRewards(gameType?: GameType) {
+  const { user, profile } = useAuth()
+  const householdId = profile?.household_id
   const supabase = createClient()
-  const { user } = useAuth()
-  const { stats } = useErenStats()
-  const { addCoins } = useTasks()
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
+  const [pending, setPending] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const mounted = useRef(true)
+  const scope = useRef({ actor: user?.id, householdId, gameType })
+  scope.current = { actor: user?.id, householdId, gameType }
+  const run = useRef<PendingSavedRequest | null>(null)
+  const activeCount = useRef(0)
+  const recoveryLock = useRef<symbol | null>(null)
+  const epoch = useRef(0)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
-  // Mirror energy into a ref: game-over handlers often fire from a long-lived
-  // requestAnimationFrame/timer closure that captured an older render's stats.
-  // The ref always holds the latest value. Default 100 so an unloaded stats
-  // row never wrongly blocks the reward.
-  const energyRef = useRef(100)
-  useEffect(() => {
-    if (typeof stats?.energy === 'number') energyRef.current = stats.energy
-  }, [stats?.energy])
-
-  const reportGameResult = useCallback((opts: ReportGameResultOpts): GameRewardResult => {
-    const { gameType, score, won, saveScore } = opts
-    const energy = energyRef.current
-    const blocked = energy < EXHAUSTED_ENERGY
-    const coins = blocked ? 0 : coinsForGame(gameType, score, won)
-
-    // Credit the wallet (per-user profiles.coins via TaskContext).
-    if (coins > 0) void addCoins(coins)
-
-    // Persist the high score so the leaderboard remembers it. Never save a
-    // 0/junk score; tic-tac-toe passes saveScore=false on a loss/draw.
-    const shouldSave = saveScore ?? score > 0
-    if (user?.id && shouldSave && score > 0) {
-      void supabase
-        .from('game_scores')
-        .insert({ user_id: user.id, game_type: gameType, score })
-        .then(({ error }) => { if (error) console.error('game score save:', error.message) })
+  const perform = useCallback(async (request: PendingSavedRequest) => {
+    const actor = user?.id
+    const generation = epoch.current
+    const active = () => mounted.current && epoch.current === generation && scope.current.actor === actor && scope.current.householdId === householdId && scope.current.gameType === gameType
+    if (!actor || !householdId || !active()) return false
+    activeCount.current++; setBusy(true); setError(null)
+    if (run.current?.id === request.id) setReward(old => old?.requestId === request.id ? { ...old, status: 'saving', error: undefined } : old)
+    try {
+      const result = await saveGameResult(supabase, actor, request, active)
+      if (!active()) return false
+      if (!result.ok || !validGameResult(result, actor, request)) {
+        const message = gameSaveError(result.reason)
+        setError(message)
+        if (run.current?.id === request.id) setReward(old => old?.requestId === request.id ? { ...old, status: 'error', error: message } : old)
+        return false
+      }
+      window.dispatchEvent(new CustomEvent<ProfileUpdatedDetail>(PROFILE_UPDATED_EVENT, { detail: { id: actor, patch: { coins: result.coins! } } }))
+      window.dispatchEvent(new CustomEvent(GAME_SAVED_EVENT, { detail: { userId: actor, gameType: result.game_type, score: result.score } }))
+      if (run.current?.id === request.id) setReward({ requestId: request.id, status: 'saved', coins: result.awarded!,
+        blocked: result.blocked!, energy: result.energy!, balance: result.coins!, scoreSaved: Boolean(result.score_id) })
+      return true
+    } finally {
+      if (active()) {
+        activeCount.current--; setBusy(activeCount.current > 0)
+        setPending(pendingGameSaves(actor, householdId, gameType).length)
+      }
     }
+  }, [user?.id, householdId, gameType]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    return { coins, blocked, energy }
-  }, [user?.id, addCoins, supabase])
+  const retry = useCallback(async () => {
+    const actor = user?.id
+    if (!actor || !householdId || recoveryLock.current || scope.current.actor !== actor || scope.current.householdId !== householdId) return
+    const token = Symbol('game-recovery'); recoveryLock.current = token
+    const generation = epoch.current
+    try {
+      for (const request of pendingGameSaves(actor, householdId, gameType)) {
+        if (!mounted.current || epoch.current !== generation || scope.current.actor !== actor || scope.current.householdId !== householdId) break
+        await perform(request)
+      }
+    } finally { if (recoveryLock.current === token) recoveryLock.current = null }
+  }, [user?.id, householdId, gameType, perform])
 
-  return { reportGameResult }
+  useEffect(() => {
+    run.current = null; recoveryLock.current = null; activeCount.current = 0
+    setReward(null); setError(null); setBusy(false)
+    setPending(user?.id && householdId ? pendingGameSaves(user.id, householdId, gameType).length : 0)
+    void retry()
+    const off = onForeground(() => { void retry() })
+    return () => { epoch.current++; off() }
+  }, [user?.id, householdId, gameType, retry])
+
+  const reportGameResult = useCallback((opts: ReportGameResultOpts) => {
+    if (!user?.id || !householdId || run.current || !mounted.current
+      || scope.current.actor !== user.id || scope.current.householdId !== householdId || (gameType && opts.gameType !== gameType)) return
+    try {
+      const request = prepareGameResult(user.id, householdId, opts)
+      run.current = request
+      setReward({ requestId: request.id, status: 'saving', coins: 0, blocked: false, energy: 0, balance: 0 })
+      setPending(pendingGameSaves(user.id, householdId, gameType).length)
+      void perform(request)
+    } catch {
+      setReward({ requestId: 'invalid', status: 'error', coins: 0, blocked: false, energy: 0, balance: 0, error: gameSaveError('bad_result') })
+    }
+  }, [user?.id, householdId, gameType, perform])
+  const clearReward = useCallback(() => { run.current = null; setReward(null) }, [])
+  return { reportGameResult, reward, clearReward, retry, pending, busy, error }
 }

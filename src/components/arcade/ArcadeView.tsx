@@ -56,12 +56,13 @@ export interface ArcadeViewProps {
   scores: ArcadeScores
   onOpenWeek?: () => void
   onGameTap?: (game: ArcadeGame) => void
+  saveNotice?: ReactNode
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ArcadeView({
-  coins, week, wish, games, scores, onOpenWeek, onGameTap,
+  coins, week, wish, games, scores, onOpenWeek, onGameTap, saveNotice,
 }: ArcadeViewProps) {
   // The wished game gets the big card, so the grid leaves it out (the board
   // lists ten tiles under a Yarn Pop wish).
@@ -69,6 +70,7 @@ export default function ArcadeView({
   return (
     <MeadowPage ground="play" title="Arcade" action={<CoinChip amount={coins} surface="ground" />}>
       <WeekStrip week={week} onOpen={onOpenWeek} />
+      {saveNotice}
 
       {wish && <WishCard wish={wish} scores={scores} onPlay={onGameTap} />}
 

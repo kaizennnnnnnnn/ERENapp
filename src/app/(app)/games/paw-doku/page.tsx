@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
@@ -281,7 +281,7 @@ export default function PawDokuGame() {
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('paw_doku')
   const timers = useGameTimers()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
@@ -314,7 +314,6 @@ export default function PawDokuGame() {
   const [erenFx, setErenFx] = useState<{ pose: ErenPose; key: number } | null>(null)
   const [floater,   setFloater]   = useState<{ id: number; text: string; color: string } | null>(null)
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }>>([])
-  const [reward,    setReward]    = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const STREAK_GRACE = 3
   const [savedGame, setSavedGame] = useState<{ owner: string; data: PawDokuSave | null } | null>(null)
@@ -456,7 +455,7 @@ export default function PawDokuGame() {
     setStreakMisses(0)
     setPhase('playing')
     savedRef.current = false
-    setReward(null)
+    clearReward()
     setDraggedIdx(null)
   }
 
@@ -489,7 +488,7 @@ export default function PawDokuGame() {
 
     if (!savedRef.current && user?.id) {
       savedRef.current = true
-      setReward(reportGameResult({ gameType: 'paw_doku', score: finalScore }))
+      reportGameResult({ gameType: 'paw_doku', score: finalScore })
       if (finalScore > 0) {
         fireMinigameDone('paw_doku', finalScore)
         completeTask('daily_game')
@@ -983,7 +982,7 @@ export default function PawDokuGame() {
           headline="No moves left"
           score={displayScore}
           best={bestScore}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); startGame() }}
           onBack={() => { playSound('ui_back'); router.replace('/games') }}
         />

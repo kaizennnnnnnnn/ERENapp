@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
@@ -131,7 +131,7 @@ export default function LaneRunnerGame() {
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('lane_runner')
   const reduced = useReducedMotion()
   // He has no face to blink (we only ever see his back), but the shared hop /
   // flinch and its particles read fine on a rear view.
@@ -181,7 +181,6 @@ export default function LaneRunnerGame() {
   const zoneIdxRef = useRef(0)
   const [gameOverScore, setGameOverScore] = useState(0)
   const [isNewBest, setIsNewBest] = useState(false)
-  const [reward, setReward] = useState<GameRewardResult | null>(null)
   // Transient lean into a lane change. `key` restarts the animation on every
   // juke; null means he's simply running straight.
   const [bank, setBank] = useState<{ dir: -1 | 1; key: number } | null>(null)
@@ -600,7 +599,7 @@ export default function LaneRunnerGame() {
     setZoneBanner(null)
     setIsNewBest(false)
     setGameOverScore(0)
-    setReward(null)
+    clearReward()
     stripeRef.current = 0
 
     const now = performance.now()
@@ -633,7 +632,7 @@ export default function LaneRunnerGame() {
     }
     if (!savedRef.current && user?.id) {
       savedRef.current = true
-      setReward(reportGameResult({ gameType: 'lane_runner', score: finalScore }))
+      reportGameResult({ gameType: 'lane_runner', score: finalScore })
       if (finalScore > 0) {
         fireMinigameDone('lane_runner', finalScore)
         completeTask('daily_game')
@@ -979,7 +978,7 @@ export default function LaneRunnerGame() {
               ),
             },
           ]}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); reset() }}
           onBack={() => { playSound('ui_back'); router.back() }}
         />

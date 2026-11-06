@@ -7,7 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
@@ -76,7 +76,7 @@ export default function ErenSaysGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const cat = useCat()
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('eren_says')
   const timers = useGameTimers()
   const reduced = useReducedMotion()
 
@@ -104,7 +104,6 @@ export default function ErenSaysGame() {
   const [particles, setParticles] = useState<Particle[]>([])
   const [scorePops, setScorePops] = useState<ScorePop[]>([])
   const [displayedScore, setDisplayedScore] = useState(0) // count-up score on gameover
-  const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const [userStep, setUserStep]   = useState(0)           // mirrors userIdxRef for render
 
   const seqRef     = useRef<number[]>([])
@@ -188,7 +187,7 @@ export default function ErenSaysGame() {
     setParticles([])
     setScorePops([])
     setDisplayedScore(0)
-    setReward(null)
+    clearReward()
     showSequence(seqRef.current)
   }
 
@@ -273,7 +272,7 @@ export default function ErenSaysGame() {
   function saveScore(reached: number) {
     if (savedRef.current || !user?.id) return
     savedRef.current = true
-    setReward(reportGameResult({ gameType: 'eren_says', score: reached }))
+    reportGameResult({ gameType: 'eren_says', score: reached })
     if (reached > 0) {
       fireMinigameDone('eren_says', reached)
       completeTask('daily_game')
@@ -300,7 +299,7 @@ export default function ErenSaysGame() {
       setParticles([])
       setScorePops([])
       setDisplayedScore(0)
-      setReward(null)
+      clearReward()
     }, 50)
   }
 
@@ -491,7 +490,7 @@ export default function ErenSaysGame() {
           }
           scoreLabel={reachedScore === 1 ? 'round cleared' : 'rounds cleared'}
           best={bestRound}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); reset() }}
           onBack={() => { playSound('ui_back'); router.push('/games') }}
         />

@@ -32,7 +32,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
 import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
@@ -97,14 +97,13 @@ export default function PurrBeatGame() {
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('purr_beat')
   const reduced = useReducedMotion()
   const idle = useErenIdle()
   const rx = useErenReaction()
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [bestScore, setBest] = useState(0)
-  const [reward, setReward] = useState<GameRewardResult | null>(null)
   const [judge, setJudge] = useState<{ kind: JudgeKind; lane: number; points: number; key: number } | null>(null)
   // The HUD's own copy of the numbers. Written on hits and misses only — the
   // engine's source of truth is in refs, so the 60fps loop never re-renders.
@@ -380,7 +379,7 @@ export default function PurrBeatGame() {
     multRef.current = 1
     tallyRef.current = { perfect: 0, good: 0, ok: 0, miss: 0 }
     savedRef.current = false
-    setReward(null)
+    clearReward()
     setJudge(null)
     setHud({ score: 0, combo: 0, mult: 1, lives: START_LIVES })
     setResult(null)
@@ -425,7 +424,7 @@ export default function PurrBeatGame() {
     playSound('pr_gameover')
 
     if (!user?.id) return
-    setReward(reportGameResult({ gameType: 'purr_beat', score: finalScore }))
+    reportGameResult({ gameType: 'purr_beat', score: finalScore })
     if (finalScore > 0) {
       fireMinigameDone('purr_beat', finalScore)
       completeTask('daily_game')
@@ -570,7 +569,7 @@ export default function PurrBeatGame() {
             { label: 'Max combo', value: result?.maxCombo ?? 0 },
             { label: 'Accuracy', value: `${accuracy}%` },
           ]}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={playRound}
           onBack={goBack}
         >

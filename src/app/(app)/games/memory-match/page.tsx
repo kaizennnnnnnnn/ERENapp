@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
@@ -85,7 +85,7 @@ export default function MemoryMatchGame() {
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('memory_match')
   const timers = useGameTimers()
   const reduced = useReducedMotion()
 
@@ -96,7 +96,6 @@ export default function MemoryMatchGame() {
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION)
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
   const [savedOnce, setSavedOnce] = useState(false)
-  const [reward, setReward] = useState<GameRewardResult | null>(null)
   const [confetti, setConfetti] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number; rot: number }>>([])
   // Floating score popups anchored to the matched card midpoint (board %)
   const [scorePops, setScorePops] = useState<Array<{ id: number; x: number; y: number; color: string; text: string }>>([])
@@ -182,7 +181,7 @@ export default function MemoryMatchGame() {
   useEffect(() => {
     if (gameState !== 'finished' || savedOnce || !user?.id) return
     setSavedOnce(true)
-    setReward(reportGameResult({ gameType: 'memory_match', score: finalScore }))
+    reportGameResult({ gameType: 'memory_match', score: finalScore })
     ;(async () => {
       fireMinigameDone('memory_match', finalScore)
       await applyAction(user.id, 'play')
@@ -204,7 +203,7 @@ export default function MemoryMatchGame() {
     setTimeLeft(GAME_DURATION)
     setGameState('running')
     setSavedOnce(false)
-    setReward(null)
+    clearReward()
     setConfetti([])
     setScorePops([])
     setMiniBursts([])
@@ -537,7 +536,7 @@ export default function MemoryMatchGame() {
             { label: 'Flips', value: flips },
             { label: 'Time', value: `${GAME_DURATION - timeLeft}s` },
           ]}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); start() }}
           onBack={() => { playSound('ui_back'); router.push('/games') }}
         />

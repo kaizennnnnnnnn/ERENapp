@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
@@ -414,7 +414,7 @@ export default function YarnPopGame() {
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('yarn_pop')
   const reduced = useReducedMotion()
 
   const [phase, setPhase]     = useState<'idle' | 'playing' | 'gameover'>('idle')
@@ -436,7 +436,6 @@ export default function YarnPopGame() {
   const [displayCombo, setDisplayCombo] = useState(0)
   const [processing, setProcessing] = useState(false)
   const [floater, setFloater] = useState<{ id: number; text: string; x: number; y: number; color: string } | null>(null)
-  const [reward, setReward] = useState<GameRewardResult | null>(null)
   // Whether the round that just ended beat the stored best (for the result card).
   const [newBest, setNewBest] = useState(false)
   const savedRef = useRef(false)
@@ -514,7 +513,7 @@ export default function YarnPopGame() {
     setHint(null)
     setShuffling(false)
     savedRef.current = false
-    setReward(null)
+    clearReward()
     setPhase('playing')
   }
 
@@ -711,7 +710,7 @@ export default function YarnPopGame() {
     } catch { /* ignore */ }
     if (!savedRef.current && user?.id) {
       savedRef.current = true
-      setReward(reportGameResult({ gameType: 'yarn_pop', score: finalScore }))
+      reportGameResult({ gameType: 'yarn_pop', score: finalScore })
       if (finalScore > 0) {
         fireMinigameDone('yarn_pop', finalScore)
         completeTask('daily_game')
@@ -1186,7 +1185,7 @@ export default function YarnPopGame() {
           scoreLabel="points"
           newBest={newBest}
           best={bestScore}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); reset() }}
           onBack={() => { playSound('ui_back'); router.push('/games') }}
         />

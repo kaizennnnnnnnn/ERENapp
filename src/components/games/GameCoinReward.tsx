@@ -20,13 +20,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCoin } from '@/components/PixelIcons'
-import { useTasks } from '@/contexts/TaskContext'
+import type { GameRewardResult } from '@/hooks/useGameRewards'
+import { M, MeadowIcon, TextButton, TYPE } from '@/components/meadow'
 import { useCat } from '@/hooks/useCat'
 import { playSound, playCoinTicks } from '@/lib/sounds'
 
 interface Props {
+  result: GameRewardResult
+  onRetry: () => void
+}
+
+export default function GameCoinReward({ result, onRetry }: Props) {
+  if (result.status !== 'saved') return (
+    <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, maxWidth: 280, textAlign: 'center' }}>
+      <MeadowIcon name={result.status === 'saving' ? 'coin' : 'pad'} size={22} />
+      <p style={{ margin: 0, ...TYPE.body, color: M.text2 }}>{result.status === 'saving' ? 'Saving score and coins...' : result.error}</p>
+      {result.status === 'error' && <TextButton onClick={onRetry}><MeadowIcon name="replay" size={16} /> Retry save</TextButton>}
+    </div>
+  )
+  return <ConfirmedGameCoins key={result.requestId} coins={result.coins} blocked={result.blocked} balance={result.balance} scoreSaved={Boolean(result.scoreSaved)} />
+}
+
+interface ConfirmedProps {
   coins: number
-  blocked?: boolean
+  blocked: boolean
+  balance: number
+  scoreSaved: boolean
 }
 
 const COIN_FLY_MS = 780 // keep in sync with the hudCoinFly duration in the CSS below
@@ -35,12 +54,10 @@ const V_SPREAD = 46      // vertical fan height between coins on a side
 
 interface Sprite { i: number; sdx: number; sdy: number; tx: number; ty: number; delay: number }
 
-export default function GameCoinReward({ coins, blocked = false }: Props) {
-  const { coins: balance } = useTasks()
+function ConfirmedGameCoins({ coins, blocked, balance, scoreSaved }: ConfirmedProps) {
   const cat = useCat()
 
-  // Snapshot the post-award total once so the pill counts up from
-  // (total − earned) → total regardless of when addCoins' state flush lands.
+  // Animate only the balance confirmed by this run's receipt.
   const targetRef = useRef<number | null>(null)
   if (targetRef.current === null) targetRef.current = balance
   const target = targetRef.current ?? 0
@@ -118,6 +135,7 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
           </div>
           <span className="gcr-tired-title">{cat.t("{name}'s too tired")}</span>
           <span className="gcr-tired-sub">Let {cat.p.him} rest to earn coins</span>
+          <span className="gcr-tired-sub">{scoreSaved ? 'Score saved' : 'Result saved'}</span>
         </div>
       ) : (
         <div className="gcr-wrap">

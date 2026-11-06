@@ -7,7 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
@@ -98,7 +98,7 @@ export default function TreatTumbleGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const cat = useCat()
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('treat_tumble')
   const timers = useGameTimers()
   const reduced = useReducedMotion()
 
@@ -123,7 +123,6 @@ export default function TreatTumbleGame() {
   const [bestCombo, setBestCombo] = useState(0)
   const [comboFlash, setComboFlash] = useState(0)
   const [displayedScore, setDisplayedScore] = useState(0)
-  const [reward, setReward] = useState<GameRewardResult | null>(null)
   // Eren's state — driven by the loop, but only written when it actually
   // changes, so a 60fps loop doesn't cause 60 pose re-renders a second.
   const [pose, setPose] = useState<TumblePose>('ready')
@@ -175,7 +174,7 @@ export default function TreatTumbleGame() {
     setBestCombo(0)
     setComboFlash(0)
     setDisplayedScore(0)
-    setReward(null)
+    clearReward()
     setErenX(50)
     erenXRef.current = 50
     setSavedOnce(false)
@@ -238,7 +237,7 @@ export default function TreatTumbleGame() {
   useEffect(() => {
     if (gameState !== 'finished' || savedOnce || !user?.id) return
     setSavedOnce(true)
-    setReward(reportGameResult({ gameType: 'treat_tumble', score: Math.max(0, score) }))
+    reportGameResult({ gameType: 'treat_tumble', score: Math.max(0, score) })
     ;(async () => {
       fireMinigameDone('treat_tumble', Math.max(0, score))
       await applyAction(user.id, 'play')
@@ -929,7 +928,7 @@ export default function TreatTumbleGame() {
             { label: 'Top bonus', value: `×${multFor(bestCombo)}` },
             { label: 'Lives left', value: lives },
           ]}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); start() }}
           onBack={() => { playSound('ui_back'); router.back() }}
         >

@@ -7,7 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
@@ -119,7 +119,7 @@ export default function TicTacToePage() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const cat = useCat()
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('tic_tac_toe')
   const timers = useGameTimers()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
@@ -139,7 +139,6 @@ export default function TicTacToePage() {
   // distracted and picks a random move instead of running minimax. Resets
   // each new match so it's a one-shot tactical option per round.
   const [canKnocked, setCanKnocked] = useState(false)
-  const [reward, setReward] = useState<GameRewardResult | null>(null)
   const matchSavedRef = useRef(false)
 
   // ─── Juice state ─────────────────────────────────────────────────────────
@@ -287,7 +286,7 @@ export default function TicTacToePage() {
       // Coins = 8 on a win, participation floor on a loss/draw. Score =
       // running win streak; the leaderboard's MAX surfaces the player's best
       // streak, and the row only saves on a win.
-      setReward(reportGameResult({ gameType: 'tic_tac_toe', score: result === 'won' ? newWins : 0, won: result === 'won', saveScore: result === 'won' }))
+      reportGameResult({ gameType: 'tic_tac_toe', score: result === 'won' ? newWins : 0, won: result === 'won', saveScore: result === 'won' })
       if (result === 'won') {
         if (newWins >= 5) completeTask('weekly_high_score')
       }
@@ -313,7 +312,7 @@ export default function TicTacToePage() {
     setPlacedCell(null)
     setFlashKey(null)
     setSpillBurst(false)
-    setReward(null)
+    clearReward()
     matchSavedRef.current = false
     // Surface the can hint once, after the player has a couple of non-wins
     // and still hasn't discovered the knock-it trick.
@@ -591,7 +590,7 @@ export default function TicTacToePage() {
             { label: 'Losses', value: losses },
             { label: 'Draws', value: draws },
           ]}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); newMatch() }}
           onBack={() => { playSound('ui_back'); router.push('/games') }}
         />

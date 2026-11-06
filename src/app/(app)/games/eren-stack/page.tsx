@@ -7,7 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
@@ -102,7 +102,7 @@ export default function ErenStackGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const cat = useCat()
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('eren_stack')
   const reduced = useReducedMotion()
   const idle = useErenIdle()
   const rx = useErenReaction()
@@ -145,7 +145,6 @@ export default function ErenStackGame() {
   const [missFlash, setMissFlash] = useState(false)
   const [scorePulse, setScorePulse] = useState<{ id: number; perfect: boolean } | null>(null)
   const [streakBreak, setStreakBreak] = useState(0)
-  const [reward, setReward] = useState<GameRewardResult | null>(null)
   // Eren's reaction to the last drop. `landKey` re-triggers his squash even
   // when the pose is unchanged (two plain drops in a row).
   const [rider, setRider] = useState<{ pose: RiderPose; landKey: number }>({ pose: 'idle', landKey: 0 })
@@ -208,7 +207,7 @@ export default function ErenStackGame() {
     setParticles([])
     setMissFlash(false)
     setScorePulse(null)
-    setReward(null)
+    clearReward()
     setRider({ pose: 'idle', landKey: 0 })
     savedRef.current = false
 
@@ -450,7 +449,7 @@ export default function ErenStackGame() {
 
     if (!savedRef.current && user?.id) {
       savedRef.current = true
-      setReward(reportGameResult({ gameType: 'eren_stack', score: finalScore }))
+      reportGameResult({ gameType: 'eren_stack', score: finalScore })
       if (finalScore > 0) {
         fireMinigameDone('eren_stack', finalScore)
         completeTask('daily_game')
@@ -758,7 +757,7 @@ export default function ErenStackGame() {
           score={score}
           scoreLabel="height"
           best={bestScore}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); reset() }}
           onBack={() => { playSound('ui_back'); router.back() }}
         />

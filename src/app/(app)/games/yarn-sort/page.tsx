@@ -31,7 +31,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameRewards } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
@@ -285,7 +285,7 @@ export default function YarnSortGame() {
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
-  const { reportGameResult } = useGameRewards()
+  const { reportGameResult, reward, clearReward, retry } = useGameRewards('yarn_sort')
   const timers = useGameTimers()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
@@ -306,7 +306,6 @@ export default function YarnSortGame() {
   const [pourFx, setPourFx]       = useState<{ tube: number; n: number; key: number } | null>(null)
   const [notice, setNotice]       = useState<{ text: string; key: number } | null>(null)
   const [fret, setFret]           = useState<{ key: number } | null>(null)  // Eren startled
-  const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const fxKey = useRef(0)
   const [savedGame, setSavedGame] = useState<{ owner: string; data: YarnSortSave | null } | null>(null)
@@ -421,7 +420,7 @@ export default function YarnSortGame() {
     setLastRefill(0)
     setPourFx(null)
     setNotice(null)
-    setReward(null)
+    clearReward()
     savedRef.current = false
     setPhase('playing')
   }
@@ -445,7 +444,7 @@ export default function YarnSortGame() {
 
     if (!savedRef.current && user?.id) {
       savedRef.current = true
-      setReward(reportGameResult({ gameType: 'yarn_sort', score: finalScore }))
+      reportGameResult({ gameType: 'yarn_sort', score: finalScore })
       if (finalScore > 0) {
         fireMinigameDone('yarn_sort', finalScore)
         completeTask('daily_game')
@@ -845,7 +844,7 @@ export default function YarnSortGame() {
           score={solved}
           scoreLabel={solved === 1 ? 'level solved' : 'levels solved'}
           best={bestScore}
-          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          reward={reward && <GameCoinReward result={reward} onRetry={retry} />}
           onAgain={() => { playSound('ui_tap'); startGame() }}
           onBack={() => { playSound('ui_back'); router.replace('/games') }}
         />

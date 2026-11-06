@@ -6,7 +6,7 @@
 // standings, and today's wish when it is a game. The places (gacha, bakery,
 // shawarma, jelly) are the home dock's, not the arcade's.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
@@ -14,6 +14,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useGamesWeekly } from '@/hooks/useGamesWeekly'
+import { useGameRewards } from '@/hooks/useGameRewards'
+import { GAME_SAVED_EVENT } from '@/lib/gameSaves'
+import GameSaveNotice from '@/components/games/GameSaveNotice'
 import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
 import { useWish } from '@/contexts/WishContext'
@@ -80,6 +83,7 @@ export default function GamesPage() {
   const { stats } = useErenStats(profile?.household_id ?? null)
   const wishState = useWish()
   const { weeklyChampion, standings, partnerId, partnerName, claim } = useGamesWeekly()
+  const gameSaves = useGameRewards()
   const [champDismissed, setChampDismissed] = useState(false)
   const [boardOpen, setBoardOpen] = useState(false)
 
@@ -96,13 +100,17 @@ export default function GamesPage() {
   // an empty map, which would claim every game is unplayed.
   const [scores, setScores] = useState<ArcadeScores>(null)
   const [scoresFailed, setScoresFailed] = useState(false)
+  const scoreReadVersion = useRef(0)
+  const scoreScope = useRef(user?.id)
+  scoreScope.current = user?.id
   const loadScores = useCallback(async (userId: string, cancelled: () => boolean) => {
+    const version = ++scoreReadVersion.current
     const supabase = createClient()
     const { data, error } = await withRetry(() => supabase
       .from('game_best_scores')
       .select('game_type, score')
       .eq('user_id', userId))
-    if (cancelled()) return
+    if (cancelled() || scoreScope.current !== userId || version !== scoreReadVersion.current) return
     if (error) {
       console.error('[arcade] best scores', error.message)
       setScoresFailed(true)
@@ -118,10 +126,22 @@ export default function GamesPage() {
 
   const userId = user?.id ?? null
   useEffect(() => {
+    setScores(null)
+    setScoresFailed(false)
     if (!userId) return
     let dead = false
     void loadScores(userId, () => dead)
     return () => { dead = true }
+  }, [userId, loadScores])
+
+  useEffect(() => {
+    if (!userId) return
+    let dead = false
+    const saved = (event: Event) => {
+      if ((event as CustomEvent<{ userId: string }>).detail?.userId === userId) void loadScores(userId, () => dead)
+    }
+    window.addEventListener(GAME_SAVED_EVENT, saved)
+    return () => { dead = true; window.removeEventListener(GAME_SAVED_EVENT, saved) }
   }, [userId, loadScores])
 
   // A tab page is not remounted when the phone wakes the app, so a read that
@@ -186,6 +206,7 @@ export default function GamesPage() {
         scores={scores}
         onOpenWeek={() => { playSound('ui_tap'); setBoardOpen(true) }}
         onGameTap={() => playSound('ui_tap')}
+        saveNotice={<GameSaveNotice pending={gameSaves.pending} busy={gameSaves.busy} error={gameSaves.error} onRetry={() => { void gameSaves.retry() }} />}
       />
 
       {boardOpen && <Leaderboard onClose={() => setBoardOpen(false)} />}
