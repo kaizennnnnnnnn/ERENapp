@@ -83,67 +83,50 @@ function giftErenForToday(): SketchErenState {
 // ────────────────────────────────────────────────────────────────────
 // PIXEL GIFT BOX — drawn as a low-res SVG cell grid (same approach as
 // PixelCloud) so the daily-fortune sequence matches the rest of the UI.
-// The box is split into a LID (rows 0-8: bow + ribbon + top half) and
-// a BODY (rows 9-12). During the opening animation the lid flies off
+// The box is split into a LID (bow + ribbon + paper rim) and a BODY.
+// During the opening animation the lid flies off
 // while the body stays put and pixel sparkles burst from the seam.
 // ────────────────────────────────────────────────────────────────────
 
 const BOX_LID_GRID: string[] = [
-  '.....##.....',
-  '....####....',
-  '..########..',
-  '..#oo##oo#..',
-  '..#oo##oo#..',
-  '...##rr##...',
-  '############',
-  '#oooorroooo#',
-  '############',
+  '....####........####....',
+  '...#lggg#......#gggl#...',
+  '..#lGGGgg#....#ggGGGl#..',
+  '..#lGGGGgg#..#ggGGGGl#..',
+  '...#gGGGGg#ll#gGGGGg#...',
+  '....##gggg#GG#ddgggg##..',
+  '......##dd#dd#GGggdd##..',
+  '.######################.',
+  '#hhhhhhhhhGGGGhhhhhhhhh#',
+  '#pppppppppgllgppppppppp#',
+  '.######################.',
 ]
 
 const BOX_BODY_GRID: string[] = [
-  '#oooorroooo#',
-  '#oooorroooo#',
-  '#oooorroooo#',
-  '############',
+  '..#hhhhhhhgllghhhhhhs#..',
+  '..#hppppppgllgpppppps#..',
+  '..#hpphpppgllgpppppps#..',
+  '..#hppppphhhhhhppppps#..',
+  '..#hpppphhchchhhpppps#..',
+  '..#hpppphccccchhpppps#..',
+  '..#hpppphhccchhhpppps#..',
+  '..#hphpphhhchhhhpppps#..',
+  '..#hpppppssssssppppps#..',
+  '..#hppppppgllgppphpps#..',
+  '..#ssssssssssssssssss#..',
+  '..#ssssssssssssssssss#..',
+  '...##################...',
 ]
 
-const PALETTE = {
-  outline: '#3D2817',
-  body:    '#F5C842',
-  ribbon:  '#C0392B',
-  shadow:  'rgba(0,0,0,0.25)',
+const PALETTE: Record<string, string> = {
+  '#': '#815B61', p: '#F4CBC4', h: '#FFF0E1', s: '#DFA59F',
+  G: '#86B99A', l: '#C8E2BE', g: '#5F9279', d: '#4F7966', c: '#D9849B',
 }
 
 function GridLayer({ grid, cell }: { grid: string[]; cell: number }) {
-  const cols = grid[0].length
-  const rows = grid.length
-  const shadow: React.ReactNode[] = []
-  const body:   React.ReactNode[] = []
-  const ribbon: React.ReactNode[] = []
-  const outline: React.ReactNode[] = []
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const ch = grid[r][c]
-      if (ch === '.') continue
-      const key = `${r}-${c}`
-      shadow.push(
-        <rect key={`s${key}`} x={c * cell + 2} y={r * cell + 2}
-          width={cell} height={cell} fill={PALETTE.shadow} />
-      )
-      if (ch === 'o') {
-        body.push(<rect key={`b${key}`} x={c * cell} y={r * cell}
-          width={cell} height={cell} fill={PALETTE.body} />)
-      } else if (ch === 'r') {
-        ribbon.push(<rect key={`r${key}`} x={c * cell} y={r * cell}
-          width={cell} height={cell} fill={PALETTE.ribbon} />)
-      } else if (ch === '#') {
-        outline.push(<rect key={`o${key}`} x={c * cell} y={r * cell}
-          width={cell} height={cell} fill={PALETTE.outline} />)
-      }
-    }
-  }
-  return <>{shadow}{body}{ribbon}{outline}</>
+  return <>{grid.flatMap((row, y) => Array.from(row, (pixel, x) => pixel === '.' ? null : (
+    <rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} fill={PALETTE[pixel]} />
+  )))}</>
 }
 
 function PixelGiftBox({
@@ -153,11 +136,10 @@ function PixelGiftBox({
   size: number
   animation: 'idle' | 'shake' | 'opening'
 }) {
-  const cell = 4
+  const cell = 2
   const cols = BOX_LID_GRID[0].length
   const lidRows = BOX_LID_GRID.length
   const bodyRows = BOX_BODY_GRID.length
-  const totalRows = lidRows + bodyRows
   const vbW = cols * cell
   const vbLidH = lidRows * cell
   const vbBodyH = bodyRows * cell
@@ -173,7 +155,7 @@ function PixelGiftBox({
     'none'
 
   return (
-    <div style={{
+    <div className="fp-gift" aria-hidden style={{
       position: 'relative',
       width: size,
       height: wrapperH,
@@ -226,7 +208,7 @@ function PixelGiftBox({
 // centre on the opening phase. Each one rides its own CSS custom
 // property to a unique destination so they spray outward in a fan.
 // ────────────────────────────────────────────────────────────────────
-function PixelSparkles({ size, scatter = 1, accent = '#FFD700' }: {
+function PixelSparkles({ size, scatter = 1, accent = '#E9A4B3' }: {
   size: number
   scatter?: number
   accent?: string
@@ -541,7 +523,7 @@ export default function FortunePopup({ onClose }: Props) {
           100% { transform: translateY(0) scale(1); opacity: 1; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .fp-loop { animation: none !important; }
+          .fp-loop, .fp-gift, .fp-gift * { animation: none !important; }
         }
       `}</style>
     </div>
