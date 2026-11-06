@@ -796,7 +796,9 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       unlock: unlockedBetween(lifetimeWraps, lifetimeWraps + takings.served),
     }
     setReport(next)
-    onClose(next, { ...regulars, ...learned.current })
+    const visits = Object.fromEntries(Object.entries(learned.current).map(([id, order]) =>
+      [id, { ...order, times: order.times - (regulars[id]?.times ?? 0) }]))
+    onClose(next, visits)
     return next
   }, [till, payable, weather, lifetimeWraps, nightSoFar, regulars, report, onClose])
 

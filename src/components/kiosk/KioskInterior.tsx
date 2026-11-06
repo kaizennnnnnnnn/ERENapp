@@ -20,7 +20,6 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { playSound } from '@/lib/sounds'
 import { startKioskAmbience, type KioskAmbience } from '@/lib/kioskAmbience'
 import { startRadio, STATIONS } from '@/lib/kioskRadio'
-import { useTasks } from '@/contexts/TaskContext'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import CurtainGlitter from '@/components/CurtainGlitter'
 import { useKioskShift } from './useKioskShift'
@@ -46,7 +45,7 @@ import CashRegister, { TILL_MS } from './CashRegister'
 import Shutter, { SHUTTER_MS, SHUTTER_STILL_MS } from './Shutter'
 import { ShiftNote, ChampionApron } from './WallProps'
 import {
-  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, WEATHER_BY_ID,
+  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, WEATHER_BY_ID, unlockedBetween,
   type WeatherId,
 } from './kioskShift'
 import { orderBase, SHIFT_MS, NIGHT_GOAL } from './kioskEconomy'
@@ -113,13 +112,8 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   const [dragX, setDragX] = useState(0)
   const [fridgeOpen, setFridgeOpen] = useState(false)
 
-  const { addCoins } = useTasks()
-  /** Did the night make it into the book? Only a recorded shift can carry a
-   *  note to whoever works next. */
-  const [recorded, setRecorded] = useState(false)
-  /** And did the money actually reach the wallet? A receipt that prints a
-   *  total nobody received is the one lie a till must not tell. */
-  const [banked, setBanked] = useState(true)
+  const opening = useRef({ menu: record.menu, regulars: record.regulars, wraps: record.lifetimeWraps, tonight: record.tonight })
+  const confirmed = record.settlement?.session_id === record.session?.session_id ? record.settlement : null
   /** When you pulled the shutter down, as a clock reading. Null until you do.
    *  The receipt waits for it: the night ends with the window being shut, not
    *  with a modal appearing over a window still standing open. */
@@ -127,37 +121,16 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   const [receiptUp, setReceiptUp] = useState(false)
 
   const shift = useKioskShift({
-    menu: record.menu,
-    regulars: record.regulars,
-    lifetimeWraps: record.lifetimeWraps,
+    menu: opening.current.menu,
+    regulars: opening.current.regulars,
+    lifetimeWraps: opening.current.wraps,
     // What the two of you have already served tonight, so the shared goal
     // knows where the night stands before you touched it.
-    nightSoFar: record.tonight,
+    nightSoFar: opening.current.tonight,
     payable,
-    // Settling up, in the one order that can't cheat either side. The pay
-    // and the record used to be fired off together and neither was checked:
-    // a failed record paid you for a night the book never heard of, and you
-    // could walk straight back in and be paid for it again.
-    //
-    // Pay first. addCoins writes an absolute value through writeWithRetry and
-    // reports whether it stuck, so this follows the rule the reward road
-    // already follows — never mark the source consumed for a payout that
-    // rolled back. If the money didn't land, the night is written down as an
-    // unpaid one: the kiosk still keeps the regulars it learned, and tonight
-    // is still yours to work. Losing the shift is the smaller wrong.
     onClose: useCallback((report, regulars) => {
-      void (async () => {
-        const ok = report.coins === 0 || await addCoins(report.coins)
-        setBanked(ok)
-        setRecorded(await record.closeShift({
-          takings: report.takings,
-          grade: report.grade,
-          weather: report.weather,
-          regulars,
-          paid: report.paid && ok,
-        }))
-      })()
-    }, [addCoins, record]),
+      void record.closeShift({ report, regulars })
+    }, [record.closeShift]),
   })
   // When the person at the window walked up, and when they were dealt with.
   // Stamped up HERE, where turning to another wall can't reset them — the
@@ -788,11 +761,15 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
 
       {shift.report && receiptUp && (
         <ShiftReport
-          report={shift.report}
-          practiceReason={shift.report.paid ? null : practiceReason}
-          banked={banked}
-          canNote={recorded}
-          onSaveNote={note => { void record.saveNote(note) }}
+          report={confirmed ? { ...shift.report, coins: confirmed.awarded, paid: confirmed.paid, grade: confirmed.grade,
+            nightTotal: confirmed.night_total, goalMet: confirmed.goal_met, unlock: unlockedBetween(confirmed.wraps_before, confirmed.wraps_after) } : shift.report}
+          practiceReason={confirmed && !confirmed.paid && !confirmed.blocked ? 'Tonight\'s pay was already collected. This shift was practice.' : shift.report.paid ? null : practiceReason}
+          banked={Boolean(confirmed)}
+          saving={record.saving}
+          saveError={record.saveError}
+          onRetry={() => { void record.retrySave() }}
+          canNote={Boolean(confirmed?.paid)}
+          onSaveNote={record.saveNote}
           onDone={onExit}
         />
       )}

@@ -22,11 +22,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth, PROFILE_UPDATED_EVENT } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { dateKey } from '@/lib/wishes'
 import { menuFor, type MenuState, type Regulars, type WeatherId } from './kioskShift'
-import type { Grade, Takings } from './kioskEconomy'
+import type { Grade } from './kioskEconomy'
+import type { ShiftReport } from './useKioskShift'
+import { startKioskShift, prepareKioskClose, pendingKioskSaves, saveKioskClose, validKioskSettlement, kioskSaveError,
+  type KioskSession, type KioskSettlement } from '@/lib/kioskSaves'
+import type { PendingSavedRequest } from '@/lib/savedRpc'
+import { notifyRewardIndicators } from '@/lib/rewardIndicators'
 
 export interface ShiftRow {
   user_id: string
@@ -68,9 +73,7 @@ export interface WeekTally {
 }
 
 export interface KioskRecord {
-  /** False until the first fetch lands. An empty record and a failed fetch
-   *  look identical otherwise, and the difference decides whether tonight is
-   *  a paid shift. */
+  /** The front board is known. Starting a shift separately confirms eligibility. */
   loaded: boolean
   /** My paid shift for tonight is already in the book. */
   workedTonight: boolean
@@ -87,17 +90,22 @@ export interface KioskRecord {
   lifetimeWraps: number
   menu: MenuState
   regulars: Regulars
-  /** Bank a finished night. Returns false if it couldn't be recorded (an
-   *  outage, or a practice shift), so the receipt can say so. */
+  session: KioskSession | null
+  settlement: KioskSettlement | null
+  starting: boolean
+  startError: string | null
+  saving: boolean
+  saveError: string | null
+  pending: number
+  beginShift: () => Promise<boolean>
+  retrySave: () => Promise<void>
+  /** Confirm the whole finished night, including unpaid practice memory. */
   closeShift: (opts: {
-    takings: Takings
-    grade: Grade
-    weather: WeatherId
+    report: ShiftReport
     regulars: Regulars
-    paid: boolean
   }) => Promise<boolean>
   /** The note is typed on the receipt, after the row already exists. */
-  saveNote: (note: string) => Promise<void>
+  saveNote: (note: string) => Promise<boolean>
 }
 
 /** Today, in the player's own timezone — a night that starts at 23:50 belongs
@@ -139,7 +147,7 @@ export function useKioskRecord(): KioskRecord {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const hh = profile?.household_id ?? null
-  const { stats } = useErenStats()
+  const { stats, refetch } = useErenStats()
 
   const [loaded, setLoaded] = useState(false)
   const [workedTonight, setWorkedTonight] = useState(false)
@@ -149,6 +157,22 @@ export function useKioskRecord(): KioskRecord {
   const [note, setNote] = useState<TillNote | null>(null)
   /** The row we just wrote, so saveNote knows what to edit. */
   const myDate = useRef<string | null>(null)
+  const [session, setSession] = useState<KioskSession | null>(null)
+  const [settlement, setSettlement] = useState<KioskSettlement | null>(null)
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [pending, setPending] = useState(0)
+  const scope = useRef({ actor: user?.id, hh }); scope.current = { actor: user?.id, hh }
+  const epoch = useRef(0), mounted = useRef(true), readVersion = useRef(0)
+  const startLock = useRef<symbol | null>(null), recoveryLock = useRef<symbol | null>(null)
+  useEffect(() => {
+    mounted.current = true; startLock.current = null; recoveryLock.current = null; myDate.current = null
+    setSession(null); setSettlement(null); setLoaded(false); setWorkedTonight(false); setLastShift(null)
+    setWeek(EMPTY_WEEK); setTonight(0); setNote(null); setStarting(false); setSaving(false); setStartError(null); setSaveError(null)
+    return () => { mounted.current = false; epoch.current++; readVersion.current++ }
+  }, [user?.id, hh])
 
   // Regulars and the lifetime count ride on the shared stats row, so a
   // partner's night is already in here by the time you walk in.
@@ -157,6 +181,7 @@ export function useKioskRecord(): KioskRecord {
 
   const load = useCallback(async () => {
     if (!hh || !user?.id) return
+    const version = ++readVersion.current
     const { data, error } = await withRetry(() =>
       supabase.from('kiosk_shifts')
         .select('user_id, shift_date, served, wrong, walked, missed_calls, best_streak, base, tips, grade, rained, weather, note, closed_at')
@@ -165,10 +190,10 @@ export function useKioskRecord(): KioskRecord {
         // Enough for both of you to have worked every night of the last week
         // and then some — the board wants seven days, not eight rows.
         .limit(24))
-    // An error is NOT "no shifts" — leaving `loaded` false keeps tonight
-    // payable rather than silently marking it already worked.
-    if (error) return
-    const rows = (data ?? []) as ShiftRow[]
+    // A failed board read is unknown; the start RPC decides paid eligibility.
+    if (!mounted.current || scope.current.actor !== user.id || scope.current.hh !== hh || version !== readVersion.current || error) return
+    const rows = ((data ?? []) as ShiftRow[]).map(row => ({ ...row,
+      weather: row.rained && (!row.weather || row.weather === 'clear') ? 'rain' as const : row.weather ?? 'clear' as const }))
     setLastShift(rows[0] ?? null)
     setWorkedTonight(rows.some(r => r.user_id === user.id && r.shift_date === today()))
 
@@ -200,53 +225,82 @@ export function useKioskRecord(): KioskRecord {
   useEffect(() => { load() }, [load])
   useEffect(() => onForeground(load), [load])
 
-  const closeShift = useCallback(async ({ takings, grade, weather, regulars: next, paid }: {
-    takings: Takings; grade: Grade; weather: WeatherId; regulars: Regulars; paid: boolean
-  }): Promise<boolean> => {
-    if (!hh || !user?.id) return false
+  const performClose = useCallback(async (request: PendingSavedRequest) => {
+    const actor = user?.id, generation = epoch.current
+    const active = () => mounted.current && epoch.current === generation && scope.current.actor === actor && scope.current.hh === hh
+    if (!actor || !hh || !active()) return false
+    setSaving(true); setSaveError(null)
+    try {
+      const result = await saveKioskClose(supabase, actor, request)
+      if (!active()) return false
+      if (!result.ok || !validKioskSettlement(result as KioskSettlement, actor, request)) {
+        setSaveError(kioskSaveError(result.reason)); return false
+      }
+      const saved = result as KioskSettlement
+      setSettlement(saved)
+      if (saved.paid) myDate.current = saved.shift_date
+      window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: actor, patch: { coins: saved.coins } } }))
+      notifyRewardIndicators()
+      void refetch(); void load()
+      return true
+    } finally {
+      if (active()) { setSaving(false); setPending(pendingKioskSaves(actor, hh).length) }
+    }
+  }, [hh, user?.id, load, refetch]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // The kiosk's memory grows on every shift, paid or not — a regular you
-    // learned on a practice night is still a regular.
-    const wraps = lifetimeWraps + takings.served
-    void withRetry(() => supabase.from('eren_stats')
-      .update({ kiosk_regulars: next, kiosk_wraps: wraps })
-      .eq('household_id', hh))
+  const retrySave = useCallback(async () => {
+    const actor = user?.id, generation = epoch.current
+    if (!actor || !hh || recoveryLock.current) return
+    const token = Symbol('kiosk-recovery'); recoveryLock.current = token
+    try {
+      for (const request of pendingKioskSaves(actor, hh)) {
+        if (!mounted.current || epoch.current !== generation || scope.current.actor !== actor || scope.current.hh !== hh) break
+        await performClose(request)
+      }
+    } finally { if (recoveryLock.current === token) recoveryLock.current = null }
+  }, [hh, user?.id, performClose])
+  const retryLatest = useRef(retrySave); retryLatest.current = retrySave
+  useEffect(() => {
+    setPending(user?.id && hh ? pendingKioskSaves(user.id, hh).length : 0)
+    void retryLatest.current()
+    return onForeground(() => { void retryLatest.current() })
+  }, [hh, user?.id])
 
-    if (!paid) return false
+  const beginShift = useCallback(async () => {
+    const actor = user?.id, generation = epoch.current
+    const active = () => mounted.current && epoch.current === generation && scope.current.actor === actor && scope.current.hh === hh
+    if (!actor || !hh || !active() || startLock.current) return false
+    if (pendingKioskSaves(actor, hh).length) { setStartError('Recover your finished shift before starting another.'); void retrySave(); return false }
+    const token = Symbol('kiosk-start'); startLock.current = token
+    setStarting(true); setStartError(null)
+    try {
+      const result = await startKioskShift(supabase, actor, hh)
+      if (!active()) return false
+      if (!result.ok) { setStartError(result.reason === 'not_ready'
+        ? 'The shop needs its saving update before a shift can open.' : kioskSaveError(result.reason)); return false }
+      setSession(result as KioskSession); setSettlement(null); setSaveError(null); myDate.current = null
+      return true
+    } catch { if (active()) setStartError('Could not open the shift. Try again; nothing has been spent.'); return false }
+    finally { if (startLock.current === token) { startLock.current = null; if (active()) setStarting(false) } }
+  }, [hh, user?.id, retrySave]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const date = today()
-    const { error } = await withRetry(() => supabase.from('kiosk_shifts').insert({
-      household_id: hh,
-      user_id: user.id,
-      shift_date: date,
-      served: takings.served,
-      wrong: takings.wrong,
-      walked: takings.walked,
-      missed_calls: takings.missedCalls,
-      best_streak: takings.bestStreak,
-      base: takings.base,
-      tips: takings.tips,
-      grade,
-      weather,
-      // Written as well as `weather`, so a row still reads correctly to any
-      // query that predates the weather being more than rain or not-rain.
-      rained: weather === 'rain',
-    }))
-    if (error) return false
-    myDate.current = date
-    setWorkedTonight(true)
-    void load()
-    return true
-  }, [hh, user?.id, lifetimeWraps]) // eslint-disable-line react-hooks/exhaustive-deps
+  const closeShift = useCallback(async ({ report, regulars: next }: { report: ShiftReport; regulars: Regulars }): Promise<boolean> => {
+    if (!hh || !user?.id || session?.user_id !== user.id || session.household_id !== hh
+      || !mounted.current || scope.current.actor !== user.id || scope.current.hh !== hh) return false
+    const request = prepareKioskClose(user.id, hh, session, report, next)
+    setPending(pendingKioskSaves(user.id, hh).length)
+    return performClose(request)
+  }, [hh, user?.id, session, performClose])
 
   const saveNote = useCallback(async (note: string) => {
-    if (!hh || !user?.id || !myDate.current) return
-    await withRetry(() => supabase.from('kiosk_shifts')
+    if (!hh || !user?.id || !myDate.current || scope.current.actor !== user.id || scope.current.hh !== hh) return false
+    const { error } = await withRetry(() => supabase.from('kiosk_shifts')
       .update({ note: note.slice(0, 90) })
       .eq('household_id', hh)
       .eq('user_id', user.id)
       .eq('shift_date', myDate.current as string))
-    void load()
+    if (!error) void load()
+    return !error
   }, [hh, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stable while the count is: the shift hook holds onto this, and a fresh
@@ -263,6 +317,9 @@ export function useKioskRecord(): KioskRecord {
     lifetimeWraps,
     menu,
     regulars,
+    session: session?.user_id === user?.id && session?.household_id === hh ? session : null,
+    settlement: settlement?.user_id === user?.id && settlement?.household_id === hh ? settlement : null,
+    starting, startError, saving, saveError, pending, beginShift, retrySave,
     closeShift,
     saveNote,
   }

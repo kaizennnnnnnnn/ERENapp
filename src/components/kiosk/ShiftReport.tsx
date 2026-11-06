@@ -17,6 +17,7 @@ import { playSound } from '@/lib/sounds'
 import { WEATHER_BY_ID } from './kioskShift'
 import { GRADE_COLOR, GRADE_WORD, NIGHT_GOAL, GOAL_BONUS } from './kioskEconomy'
 import type { ShiftReport as Report } from './useKioskShift'
+import KioskSaveNotice from './KioskSaveNotice'
 
 interface Props {
   report: Report
@@ -24,9 +25,12 @@ interface Props {
   practiceReason: string | null
   /** False when the coins on this receipt never reached the wallet. */
   banked: boolean
+  saving: boolean
+  saveError: string | null
+  onRetry: () => void
   /** Notes can only be left on a shift that made it into the book. */
   canNote: boolean
-  onSaveNote: (note: string) => void
+  onSaveNote: (note: string) => Promise<boolean>
   onDone: () => void
 }
 
@@ -62,22 +66,24 @@ function Row({ label, value, dim }: { label: string; value: string; dim?: boolea
   )
 }
 
-export default function ShiftReport({ report, practiceReason, banked, canNote, onSaveNote, onDone }: Props) {
+export default function ShiftReport({ report, practiceReason, banked, saving, saveError, onRetry, canNote, onSaveNote, onDone }: Props) {
   const { takings: t, grade, coins, weather, early, unlock, nightTotal, goalMet } = report
   const sky = WEATHER_BY_ID[weather]
   /** Money that actually moved: earned AND received. */
   const paidOut = report.paid && banked
   const [note, setNote] = useState('')
   const [saved, setSaved] = useState(false)
+  const [pinning, setPinning] = useState(false)
+  const [pinError, setPinError] = useState(false)
 
   // No shutter sound here any more — it belongs to the shutter, which now
   // actually comes down before this arrives. See Shutter.tsx.
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center px-5"
+    <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto px-5 py-5"
       style={{ background: 'rgba(4,3,4,0.86)', backdropFilter: 'blur(3px)' }}>
       <div style={{
-        width: '100%', maxWidth: 300,
+        width: '100%', maxWidth: 300, marginTop: 'auto', marginBottom: 'auto',
         filter: 'drop-shadow(4px 6px 0 rgba(0,0,0,0.55))',
         animation: 'kioskReceiptIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
       }}>
@@ -133,7 +139,7 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               fontSize: 8, letterSpacing: 1, color: INK,
             }}>
-              <span>TOOK HOME</span>
+              <span>{banked ? 'TOOK HOME' : 'AWAITING SAVE'}</span>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 // Struck through rather than hidden: you earned this, it just
@@ -148,7 +154,7 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
               <div className="font-pixel" style={{
                 fontSize: 5.5, lineHeight: 1.7, color: FADED, marginTop: 6,
               }}>
-                the wallet never answered — the night stays unworked, come back and close it again
+                your result is kept until the save is confirmed
               </div>
             )}
             {practiceReason && (
@@ -159,6 +165,8 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
               </div>
             )}
           </div>
+
+          {!banked && <div style={{ marginTop: 12 }}><KioskSaveNotice inline busy={saving} error={saveError} onRetry={onRetry} /></div>}
 
           {/* ── the two of you ── what the household did tonight, across both
               shifts. Printed whether or not the line was crossed: half the
@@ -211,7 +219,7 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
             </span>
           </div>
 
-          {unlock && (
+          {banked && unlock && (
             <div className="font-pixel" style={{
               marginTop: 12, padding: '8px 9px',
               fontSize: 6, lineHeight: 1.8, letterSpacing: 0.5,
@@ -235,7 +243,7 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
                 <input
                   value={note}
-                  onChange={e => { setNote(e.target.value); setSaved(false) }}
+                  onChange={e => { setNote(e.target.value); setSaved(false); setPinError(false) }}
                   maxLength={60}
                   placeholder="ran out of onion. sorry."
                   aria-label="A note for whoever works next"
@@ -250,8 +258,14 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
                 />
                 <button
                   type="button"
-                  onClick={() => { if (note.trim()) { onSaveNote(note.trim()); setSaved(true); playSound('ui_select') } }}
-                  disabled={!note.trim() || saved}
+                  onClick={async () => {
+                    if (!note.trim() || pinning) return
+                    setPinning(true); setPinError(false)
+                    try { const ok = await onSaveNote(note.trim()); setSaved(ok); setPinError(!ok); if (ok) playSound('ui_select') }
+                    catch { setPinError(true) }
+                    finally { setPinning(false) }
+                  }}
+                  disabled={!note.trim() || saved || pinning}
                   className="font-pixel active:translate-y-[1px] transition-transform"
                   style={{
                     flex: '0 0 auto',
@@ -261,9 +275,10 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
                     border: `2px solid ${INK}`, borderRadius: 4,
                     padding: '5px 7px 4px',
                   }}>
-                  {saved ? 'PINNED' : 'PIN'}
+                  {saved ? 'PINNED' : pinning ? 'PINNING' : 'PIN'}
                 </button>
               </div>
+              {pinError && <div role="status" style={{ color: INK, fontSize: 13, marginTop: 6 }}>Could not pin the note. Try again.</div>}
             </div>
           )}
 

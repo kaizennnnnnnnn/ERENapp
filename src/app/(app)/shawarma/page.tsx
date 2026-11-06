@@ -33,6 +33,8 @@ import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import KioskInterior, { KIOSK_VIEW_SRCS } from '@/components/kiosk/KioskInterior'
 import { requestCloudNav } from '@/components/CloudTransition'
+import KioskSaveNotice from '@/components/kiosk/KioskSaveNotice'
+import { M } from '@/components/meadow'
 
 // Intrinsic size of /ShawarmaKiosk.png. Drives the stage aspect ratio and
 // the letterbox band height, so swapping in a repaint at a different size
@@ -81,14 +83,10 @@ const COOK_EYES = {
 type Phase = 'front' | 'entering' | 'inside' | 'leaving'
 const ENTER_MS = 620
 const LEAVE_MS = 420
-/** Longest the door will hold for the book to be read. Past this we go in
- *  anyway on useKioskRecord's deliberate fail-open — a shift you can't start
- *  is worse than a shift that pays when it maybe shouldn't. */
-const KNOW_BY_MS = 1_800
 
 export default function ShawarmaPage() {
   const { setHideStats } = useCare()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { stats } = useErenStats()
   const cat = useCat()
   // Owned up here rather than inside the kiosk: the board on the front reads
@@ -100,13 +98,11 @@ export default function ShawarmaPage() {
   // reasons are said out loud on the front door rather than discovered at the
   // till — nobody should work a shift to find out it was unpaid.
   const tired = (stats?.energy ?? 100) < EXHAUSTED_ENERGY
-  // Note this is deliberately NOT gated on `record.loaded`: a fetch that
-  // ERRORS leaves `loaded` false, and useKioskRecord says out loud that an
-  // error is not the same as "no shifts" and should keep the night payable.
-  // A fetch still in flight is the different case, and `goInside` waits for
-  // that one rather than starting a shift whose pay nobody has checked.
-  const payable = !record.workedTonight && !tired
-  const practiceReason = record.workedTonight
+  // The board is a preview; entry confirms eligibility and energy on the server.
+  const payable = record.session ? record.session.paid : !record.workedTonight && !tired
+  const practiceReason = record.session?.blocked
+    ? cat.t('{name} was too tired to take the money seriously').toLowerCase()
+    : (record.session && !record.session.paid) || record.workedTonight
     ? 'you already worked tonight — this one was for the practice'
     : tired
       ? cat.t('{name} was too tired to take the money seriously').toLowerCase()
@@ -128,22 +124,14 @@ export default function ShawarmaPage() {
     return () => clearTimeout(t)
   }, [])
 
-  // The book, as something the door can wait on. Resolvers are parked here
-  // and fired by the effect below when the fetch lands.
-  const bookWaiters = useRef<(() => void)[]>([])
+  const transition = useRef(0)
   useEffect(() => {
-    if (!record.loaded) return
-    bookWaiters.current.forEach(resolve => resolve())
-    bookWaiters.current = []
-  }, [record.loaded])
-  const bookIsIn = useCallback(() => record.loaded
-    ? Promise.resolve()
-    : new Promise<void>(resolve => {
-        bookWaiters.current.push(resolve)
-        setTimeout(resolve, KNOW_BY_MS)
-      }), [record.loaded])
-
-  const goInside = useCallback(() => {
+    transition.current++; setPhase('front')
+    return () => { transition.current++ }
+  }, [user?.id, profile?.household_id])
+  const goInside = useCallback(async () => {
+    const token = ++transition.current
+    if (!await record.beginShift() || token !== transition.current) return
     playSound('ui_modal_open')
     setPhase('entering')
     // Cut to the interior when BOTH the push-in has finished and the first
@@ -152,12 +140,9 @@ export default function ShawarmaPage() {
     const pushIn = new Promise(resolve => setTimeout(resolve, ENTER_MS))
     const firstWall = new window.Image()
     firstWall.src = KIOSK_VIEW_SRCS[0]
-    // The book joins the race the door was already running. On a warm load it
-    // is home long before the push-in; on a cold first tap it stops the kiosk
-    // offering a paid shift it is about to withdraw.
-    Promise.all([pushIn, firstWall.decode().catch(() => null), bookIsIn()])
-      .then(() => setPhase('inside'))
-  }, [bookIsIn])
+    Promise.all([pushIn, firstWall.decode().catch(() => null)])
+      .then(() => { if (token === transition.current) setPhase('inside') })
+  }, [record.beginShift])
 
   const goOutside = useCallback(() => {
     setPhase('leaving')
@@ -191,7 +176,7 @@ export default function ShawarmaPage() {
       {/* ══ FRONT ══ the kiosk from the street. Everything in here rides the
           push-in together, so the sign, the window and Eren all rush past you
           as one picture rather than the button flying off on its own. */}
-      <div className="absolute inset-0" style={{
+      <div className="absolute inset-0" aria-hidden={phase === 'inside' || phase === 'leaving'} style={{
         pointerEvents: phase === 'front' ? undefined : 'none',
         ...(phase === 'entering'
           ? { animation: `kioskPushIn ${ENTER_MS}ms cubic-bezier(0.5, 0, 0.75, 0) both` }
@@ -261,6 +246,7 @@ export default function ShawarmaPage() {
           <button
             type="button"
             onClick={goInside}
+            disabled={phase !== 'front' || record.starting || record.saving || record.pending > 0}
             className="font-pixel absolute left-1/2 active:translate-y-[2px] transition-transform"
             style={{
               bottom: '13%', transform: 'translateX(-50%)',
@@ -273,7 +259,7 @@ export default function ShawarmaPage() {
               boxShadow: '0 3px 0 #DC772A, 3px 5px 0 rgba(0,0,0,0.5), 0 0 20px rgba(245,156,69,0.3)',
             }}
           >
-            GO INSIDE
+            {record.starting ? 'OPENING SHIFT...' : 'GO INSIDE'}
           </button>
 
           {/* ══ THE BOARD ══ last night's takings, chalked up by the door, and
@@ -410,6 +396,14 @@ export default function ShawarmaPage() {
           )}
         </div>
       </div>
+
+      {phase === 'front' && (record.saving || record.pending > 0) && <div style={{ position: 'absolute', zIndex: 35,
+        top: 'calc(56px + env(safe-area-inset-top, 0px))', left: 16, right: 16 }}>
+        <KioskSaveNotice busy={record.saving} error={record.saveError} onRetry={() => { void record.retrySave() }} />
+      </div>}
+      {phase === 'front' && record.startError && !record.pending && <div className="meadow-root" role="status" style={{ position: 'absolute', zIndex: 35,
+        top: 'calc(56px + env(safe-area-inset-top, 0px))', left: 16, right: 16, padding: 12, borderRadius: 8,
+        background: '#FFFFFF', color: M.text, fontSize: 14, lineHeight: 1.4, boxShadow: `0 3px 0 ${M.overArtLip}` }}>{record.startError}</div>}
 
       {/* ══ VIGNETTE ══ keeps the alley feeling closed-in, and stops the band
           seams from being the brightest thing at the screen edges. */}
