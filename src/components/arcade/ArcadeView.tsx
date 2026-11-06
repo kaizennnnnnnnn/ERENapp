@@ -57,12 +57,13 @@ export interface ArcadeViewProps {
   onOpenWeek?: () => void
   onGameTap?: (game: ArcadeGame) => void
   saveNotice?: ReactNode
+  newGames?: readonly GameType[]
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ArcadeView({
-  coins, week, wish, games, scores, onOpenWeek, onGameTap, saveNotice,
+  coins, week, wish, games, scores, onOpenWeek, onGameTap, saveNotice, newGames = [],
 }: ArcadeViewProps) {
   // The wished game gets the big card, so the grid leaves it out (the board
   // lists ten tiles under a Yarn Pop wish).
@@ -72,7 +73,7 @@ export default function ArcadeView({
       <WeekStrip week={week} onOpen={onOpenWeek} />
       {saveNotice}
 
-      {wish && <WishCard wish={wish} scores={scores} onPlay={onGameTap} />}
+      {wish && <WishCard wish={wish} scores={scores} onPlay={onGameTap} fresh={newGames.includes(wish.game.id)} />}
 
       <SectionLabel>All games</SectionLabel>
       <div style={GRID}>
@@ -85,7 +86,8 @@ export default function ArcadeView({
             tint={GAME_TINT[game.id] ?? TINT.soft}
             title={game.title}
             detail={<BestLine id={game.id} scores={scores} />}
-            ariaLabel={`${game.title}, ${bestSpeech(game.id, scores)}`}
+            ariaLabel={`${game.title}, ${newGames.includes(game.id) ? 'new game, ' : ''}${bestSpeech(game.id, scores)}`}
+            fresh={newGames.includes(game.id)}
           />
         ))}
       </div>
@@ -225,10 +227,11 @@ function WeekStrip({ week, onOpen }: { week: ArcadeWeek; onOpen?: () => void }) 
 // narrow phone and when a long name ("Purr-fect Memory") wraps the title onto
 // a second line and the card grows. Offsets are the board's (card 358 x 200).
 
-function WishCard({ wish, scores, onPlay }: {
+function WishCard({ wish, scores, onPlay, fresh }: {
   wish: ArcadeWish
   scores: ArcadeScores
   onPlay?: (game: ArcadeGame) => void
+  fresh?: boolean
 }) {
   const { game } = wish
   return (
@@ -267,8 +270,8 @@ function WishCard({ wish, scores, onPlay }: {
             when a wrapped title grows the card. */}
         <span aria-hidden style={{ flex: '1 0 14px' }} />
         <PrimaryButton size="md" href={game.href} onClick={onPlay ? () => onPlay(game) : undefined}
-          ariaLabel={`Play ${game.title}`} style={{ marginBottom: 4 }}>
-          Play
+          ariaLabel={`Play ${game.title}${fresh ? ', new game' : ''}`} style={{ marginBottom: 4 }}>
+          {fresh ? 'Play new game' : 'Play'}
         </PrimaryButton>
       </div>
     </section>
@@ -281,7 +284,7 @@ const WISH_TAG: CSSProperties = { height: 26, fontSize: 11, letterSpacing: '0.05
 
 // ─── Tile (a game) ───────────────────────────────────────────────────────────
 
-function Tile({ href, onClick, icon, tint, title, detail, ariaLabel }: {
+function Tile({ href, onClick, icon, tint, title, detail, ariaLabel, fresh }: {
   href: string
   onClick?: MouseEventHandler<HTMLAnchorElement>
   icon: ReactNode
@@ -289,12 +292,14 @@ function Tile({ href, onClick, icon, tint, title, detail, ariaLabel }: {
   title: string
   detail: ReactNode
   ariaLabel?: string
+  fresh?: boolean
 }) {
   return (
     <Link href={href} onClick={onClick} aria-label={ariaLabel} className="m-press m-focus" style={{
       minHeight: 128, boxSizing: 'border-box', borderRadius: 22, background: '#FFFFFF', padding: '14px 14px 14px 16px',
-      display: 'flex', flexDirection: 'column', textDecoration: 'none', color: M.text, minWidth: 0,
+      display: 'flex', flexDirection: 'column', textDecoration: 'none', color: M.text, minWidth: 0, position: 'relative',
     }}>
+      {fresh && <Tag tone="love" size="sm" style={{ position: 'absolute', top: 12, right: 12 }}>New</Tag>}
       <span aria-hidden style={{
         width: 52, height: 52, borderRadius: 16, background: tint, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0,

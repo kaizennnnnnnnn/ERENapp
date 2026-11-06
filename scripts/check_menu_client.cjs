@@ -66,7 +66,7 @@ test('initial reconciliation and all three saved meals adopt only confirmed prog
     v=await h.settle();assert.equal(v.progress.filter(Boolean).length,i+1)
   }
   assert.equal(v.claimed,true);assert.equal(h.state.coins,40);assert.equal(h.receipts.size,1)
-  assert.equal(h.events.at(-1).detail.patch.coins,40);h.unmount()
+  assert.equal(h.events.filter(e=>e.type===PROFILE).at(-1).detail.patch.coins,40);h.unmount()
 })
 test('missing RPC and transport failure settle without optimistic markers, coins or retry loops',async()=>{
   for(const mode of ['missing','throw']){

@@ -28,6 +28,8 @@ import { playSound } from '@/lib/sounds'
 import { useBottomNavHiddenByPage } from './NavVisibility'
 import { RoomsSheet } from './RoomsSheet'
 import { useUsBadge } from './useUsBadge'
+import NotificationDot from '@/components/meadow/NotificationDot'
+import { useRewardIndicators } from '@/contexts/RewardIndicators'
 
 /** The routes that carry the nav. Exact matches: /games/yarn-pop has no nav. */
 export const NAV_ROUTES: readonly string[] = ['/home', '/couple', '/games', '/profile']
@@ -54,6 +56,7 @@ export interface BottomNavBarProps {
   usUnread: number
   /** Show the Us dot (unread or a reward waiting). */
   usDot: boolean
+  alerts?: Partial<Record<NavTab, string>>
   roomsOpen: boolean
   onRooms: () => void
   /** A tab link was tapped (sound, scroll-to-top on the active tab). */
@@ -71,17 +74,13 @@ function TabFace({ icon, label, on, dot }: { icon: MeadowIconName; label: string
         {label}
       </span>
       {dot && (
-        <span aria-hidden style={{
-          // 8px dot inside a 2px white ring: 12px in all (border-box here).
-          position: 'absolute', left: 38, top: 4, width: 12, height: 12, boxSizing: 'border-box',
-          borderRadius: 999, background: M.love, border: '2px solid #FFFFFF',
-        }} />
+        <NotificationDot style={{ left: 38, top: 4, right: 'auto' }} />
       )}
     </span>
   )
 }
 
-export function BottomNavBar({ active, usUnread, usDot, roomsOpen, onRooms, onTab }: BottomNavBarProps) {
+export function BottomNavBar({ active, usUnread, usDot, alerts = {}, roomsOpen, onRooms, onTab }: BottomNavBarProps) {
   const itemCss = {
     flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
     textDecoration: 'none', padding: 0, border: 0, background: 'transparent', cursor: 'pointer',
@@ -97,8 +96,9 @@ export function BottomNavBar({ active, usUnread, usDot, roomsOpen, onRooms, onTa
         if (!tab.href) {
           return (
             <button key={tab.key} type="button" onClick={onRooms} aria-haspopup="dialog" aria-expanded={roomsOpen}
+              aria-label={alerts.rooms ? `Rooms, ${alerts.rooms}` : undefined}
               className="m-press m-focus" style={itemCss}>
-              <TabFace icon={tab.icon} label={tab.label} on={roomsOpen} />
+              <TabFace icon={tab.icon} label={tab.label} on={roomsOpen} dot={Boolean(alerts.rooms)} />
             </button>
           )
         }
@@ -106,11 +106,11 @@ export function BottomNavBar({ active, usUnread, usDot, roomsOpen, onRooms, onTa
         const isUs = tab.key === 'us'
         const label = isUs && usDot
           ? usUnread > 0 ? `Us, ${usUnread} unread` : 'Us, a reward is waiting'
-          : undefined
+          : alerts[tab.key] ? `${tab.label}, ${alerts[tab.key]}` : undefined
         return (
           <Link key={tab.key} href={tab.href} aria-current={active === tab.key ? 'page' : undefined} aria-label={label}
             onClick={e => onTab?.(tab.key, e)} className="m-press m-focus" style={itemCss}>
-            <TabFace icon={tab.icon} label={tab.label} on={on} dot={isUs && usDot} />
+            <TabFace icon={tab.icon} label={tab.label} on={on} dot={isUs && usDot || Boolean(alerts[tab.key])} />
           </Link>
         )
       })}
@@ -126,6 +126,7 @@ export default function BottomNav() {
   const { activeScene, openScene } = useCare()
   const hiddenByPage = useBottomNavHiddenByPage()
   const us = useUsBadge()
+  const indicators = useRewardIndicators()
   const [roomsOpen, setRoomsOpen] = useState(false)
 
   const active = TAB_FOR_ROUTE[pathname] ?? null
@@ -167,8 +168,9 @@ export default function BottomNav() {
   return (
     <>
       <BottomNavBar active={active} usUnread={us.unread} usDot={us.show}
+        alerts={{ ...indicators.tabs, rooms: indicators.places['/bakery'] ?? (indicators.news.kitchen ? 'New food is in the fridge' : undefined) }}
         roomsOpen={roomsOpen} onRooms={openRooms} onTab={onTab} />
-      <RoomsSheet open={roomsOpen} onClose={closeRooms} onPick={pickRoom} />
+      <RoomsSheet open={roomsOpen} onClose={closeRooms} onPick={pickRoom} bakeryAlert={indicators.places['/bakery']} kitchenAlert={indicators.news.kitchen} />
     </>
   )
 }

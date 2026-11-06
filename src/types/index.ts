@@ -462,6 +462,9 @@ export interface UserGachaState {
   // Absent until supabase/migration_donut_machine.sql is applied; a missing
   // column reads as "never spun", which is the correct starting state anyway.
   last_free_donut?: string | null
+  /** Rolling 24h food pull; absent until migration_free_food_gacha.sql is installed. */
+  last_free_food_gacha?: string | null
+  gacha_tickets?: number
 }
 
 export interface GachaPullResult {

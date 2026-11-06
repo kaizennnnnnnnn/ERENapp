@@ -16,6 +16,7 @@ import {
   achievementRewardInput, rewardSaveError, type RewardKind, type RewardSaveResult,
 } from '@/lib/rewardSaves'
 import type { PendingSavedRequest } from '@/lib/savedRpc'
+import { receiveRewardNews } from '@/lib/rewardNews'
 
 interface TaskContextValue {
   completedIds: Set<string>
@@ -119,6 +120,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     setAchievements(saved.achievements ?? {})
     window.dispatchEvent(new CustomEvent<ProfileUpdatedDetail>(PROFILE_UPDATED_EVENT, { detail: { id: user.id, patch: saved } }))
     if (outcome.tasks.length) {
+      for (const task of outcome.tasks) receiveRewardNews(user.id, 'quests', `task:${task.id}:${task.periodKey}`)
       const next = new Set(completedRef.current)
       for (const task of outcome.tasks) next.add(`${task.id}:${task.periodKey}`)
       completedRef.current = next
@@ -134,6 +136,10 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (outcome.freezeUsed) window.dispatchEvent(new CustomEvent('eren:streak-freeze-used', { detail: { streak: saved.streak?.current, freezesLeft: saved.streak?.freezeTokens ?? 0 } }))
     if (outcome.repaired) window.dispatchEvent(new CustomEvent('eren:streak-repaired', { detail: { streak: outcome.streakCount } }))
     const unlocked = outcome.achievements.map(id => ACHIEVEMENT_DEFS.find(def => def.id === id)).filter((def): def is AchievementDef => !!def)
+    for (const achievement of unlocked) receiveRewardNews(user.id, 'profile', `achievement:${achievement.id}`)
+    for (const milestone of outcome.milestones ?? []) receiveRewardNews(user.id, 'profile', `streak:${saved.streak?.lastDate}:${milestone}`)
+    if (outcome.levelUp) receiveRewardNews(user.id, 'profile', `level:${outcome.levelReached}`)
+    if (outcome.road?.foods.length) receiveRewardNews(user.id, 'kitchen', `road:${outcome.road.from}:${outcome.road.to}`)
     if (unlocked.length) window.dispatchEvent(new CustomEvent('eren:achievement-unlocked', { detail: { achievements: unlocked } }))
     if (outcome.road) window.dispatchEvent(new Event('eren:rewards-claimed'))
     return true

@@ -23,6 +23,7 @@ import { playSound } from '@/lib/sounds'
 import { HEADER_CLEARANCE, M, MeadowIcon, RoundButton } from '@/components/meadow'
 import WishButton, { type WishButtonProps } from './WishButton'
 import HudBadge, { HUD_BUTTON } from './HudBadge'
+import NotificationDot from '@/components/meadow/NotificationDot'
 
 export interface HomeHudProps {
   /** The quests bar (TaskPanel); flexes to fill the row. */
@@ -66,6 +67,7 @@ export default function HomeHud({
             <span style={{ display: 'block', lineHeight: 0, animation: 'hudGiftHop 1.6s 0.6s infinite' }}>
               <MeadowIcon name="gift" size={20} />
             </span>
+            <NotificationDot />
           </RoundButton>
         )}
         <RoundButton surface="art" size={HUD_BUTTON} href="/hallway" onClick={tap} ariaLabel="The Hallway"

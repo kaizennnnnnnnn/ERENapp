@@ -10,6 +10,8 @@
 // that can still be repaired slots in under the stats, where the streak lives.
 
 import { useState, type ReactNode } from 'react'
+import Link from 'next/link'
+import NotificationDot from '@/components/meadow/NotificationDot'
 import {
   Avatar, Card, Divider, MeadowIcon, MeadowPage, Meter, PrimaryButton, RoundButton, SecondaryButton,
   SectionLabel, Sheet, Stage, StatTile, StatUnit, Tag, IconTile,
@@ -51,6 +53,7 @@ export interface ProfileViewProps {
   /** Whole days since the household began; null while loading. */
   togetherDays: number | null
   level: { level: number; xpIn: number; xpNeeded: number } | null
+  levelRewards?: number
   /** "31 Mar": the first day this person's time was tracked. */
   timeSince: string | null
   achievements: { unlocked: number; total: number; shelf: AchievementItem[]; all: AchievementItem[] }
@@ -240,12 +243,16 @@ export default function ProfileView(props: ProfileViewProps) {
 
       {/* ── Stats 2x2 ── */}
       <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <Link href="/rewards" className="m-focus" aria-label={props.levelRewards ? `Level, ${props.levelRewards} rewards to claim` : 'Open level rewards'}
+          style={{ display: 'block', minWidth: 0, position: 'relative', textDecoration: 'none', color: 'inherit' }}>
         <StatTile
           label="Level"
           value={level ? level.level : dash}
           meter={{ value: level ? level.xpIn / level.xpNeeded : 0, color: M.leaf, label: 'Progress to the next level' }}
           footer={level ? `${level.xpIn} / ${level.xpNeeded} XP` : dash}
         />
+        {Boolean(props.levelRewards) && <NotificationDot style={{ top: 10, right: 10 }} />}
+        </Link>
         <StatTile
           label="Best streak"
           value={<>{streak.best ?? dash}<MeadowIcon name="flame" style={{ alignSelf: 'center', marginLeft: 8 }} /></>}

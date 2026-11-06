@@ -10,15 +10,18 @@ import { ROOMS, type RoomDef } from '@/components/home/RoomsMenu'
 import { Sheet } from '@/components/meadow/Sheet'
 import { FONT_ROUNDED, M } from '@/components/meadow/tokens'
 import { useCat } from '@/hooks/useCat'
+import NotificationDot from '@/components/meadow/NotificationDot'
 
 export interface RoomsSheetProps {
   open: boolean
   onClose: () => void
   onPick: (room: RoomDef) => void
   rooms?: readonly RoomDef[]
+  bakeryAlert?: string
+  kitchenAlert?: boolean
 }
 
-export function RoomsSheet({ open, onClose, onPick, rooms = ROOMS }: RoomsSheetProps) {
+export function RoomsSheet({ open, onClose, onPick, rooms = ROOMS, bakeryAlert, kitchenAlert }: RoomsSheetProps) {
   const cat = useCat()
   return (
     <Sheet open={open} onClose={onClose} title="Rooms">
@@ -28,6 +31,7 @@ export function RoomsSheet({ open, onClose, onPick, rooms = ROOMS }: RoomsSheetP
             key={room.id}
             type="button"
             onClick={() => onPick(room)}
+            aria-label={room.id === 'bakery' && bakeryAlert ? `${cat.t(room.label)}, ${bakeryAlert}` : room.id === 'feed' && kitchenAlert ? `${cat.t(room.label)}, new food in the fridge` : undefined}
             className="m-press m-focus"
             style={{
               minHeight: 100, padding: '0 4px', border: 0, borderRadius: 18, background: M.soft,
@@ -35,8 +39,10 @@ export function RoomsSheet({ open, onClose, onPick, rooms = ROOMS }: RoomsSheetP
               fontFamily: FONT_ROUNDED, cursor: 'pointer',
             }}
           >
-            <span aria-hidden style={{ lineHeight: 0 }}>
+            <span aria-hidden style={{ lineHeight: 0, position: 'relative' }}>
               <room.Icon size={32} />
+              {room.id === 'bakery' && bakeryAlert && <NotificationDot />}
+              {room.id === 'feed' && kitchenAlert && <NotificationDot />}
             </span>
             <span style={{
               minHeight: 30, maxWidth: '100%', display: 'flex', alignItems: 'center', textAlign: 'center',

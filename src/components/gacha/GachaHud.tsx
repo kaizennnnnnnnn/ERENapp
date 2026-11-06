@@ -26,6 +26,7 @@ import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
 import { PITY_EPIC, PITY_LEGENDARY, PULL_COST_SINGLE, PULL_COST_TEN } from '@/lib/gacha'
 import GachaPullButton from './GachaPullButton'
 import { RARITY_FILL } from './rarity'
+import { freeWaitLabel } from '@/lib/rewardIndicators'
 
 interface Props {
   machines: ReadonlyArray<{ id: string; name: string }>
@@ -34,6 +35,8 @@ interface Props {
   coins: number
   stardust: number
   tickets: number
+  freeFoodReady?: boolean
+  freeFoodIn?: number | null
   /** Pulls since the last epic / legendary. */
   pityEpic: number
   pityLegendary: number
@@ -55,7 +58,7 @@ const PILL: CSSProperties = {
 
 export default function GachaHud({
   machines, index, onGo, coins, stardust, tickets, pityEpic, pityLegendary, pulling,
-  onBack, onCollection, onOdds, onPull,
+  onBack, onCollection, onOdds, onPull, freeFoodReady = false, freeFoodIn,
 }: Props) {
   const machine = machines[index]
   return (
@@ -91,10 +94,10 @@ export default function GachaHud({
               }}>{machine.name}</span>
               <span className="flex" style={{ gap: 5 }}>
                 {machines.map((m, i) => (
-                  <button key={m.id} type="button" onClick={() => onGo(i)} aria-label={m.name}
+                  <button key={m.id} type="button" onClick={() => onGo(i)} aria-label={m.id === 'food' && freeFoodReady ? `${m.name}, free food pull ready` : m.name}
                     aria-current={i === index || undefined} className="m-focus" style={{
                       width: i === index ? 16 : 6, height: 6, padding: 0, border: 0, borderRadius: 999,
-                      background: i === index ? M.leaf : M.softLip, cursor: 'pointer',
+                      background: m.id === 'food' && freeFoodReady ? M.love : i === index ? M.leaf : M.softLip, cursor: 'pointer',
                     }} />
                 ))}
               </span>
@@ -118,11 +121,14 @@ export default function GachaHud({
             <Pity label="Legendary" left={PITY_LEGENDARY - pityLegendary} of={PITY_LEGENDARY} color={RARITY_FILL.legendary} />
           </div>
           <div className="flex" style={{ gap: 10, marginTop: 14 }}>
-            <GachaPullButton tier="single" cost={PULL_COST_SINGLE} showTicket={tickets > 0}
-              disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)} onClick={() => onPull(1)} />
+            <GachaPullButton tier="single" cost={PULL_COST_SINGLE} showTicket={tickets > 0} showFree={machine.id === 'food' && freeFoodReady}
+              disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0 && !(machine.id === 'food' && freeFoodReady))} onClick={() => onPull(1)} />
             <GachaPullButton tier="ten" cost={PULL_COST_TEN}
               disabled={pulling || coins < PULL_COST_TEN} onClick={() => onPull(10)} />
           </div>
+          {machine.id === 'food' && freeFoodIn != null && freeFoodIn > 0 && <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 12, fontWeight: 700, color: M.text2 }}>
+            Free food pull in {freeWaitLabel(freeFoodIn)}
+          </p>}
         </div>
       </div>
     </>

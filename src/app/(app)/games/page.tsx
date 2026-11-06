@@ -17,6 +17,7 @@ import { useGamesWeekly } from '@/hooks/useGamesWeekly'
 import { useGameRewards } from '@/hooks/useGameRewards'
 import { GAME_SAVED_EVENT } from '@/lib/gameSaves'
 import GameSaveNotice from '@/components/games/GameSaveNotice'
+import { useRewardIndicators } from '@/contexts/RewardIndicators'
 import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
 import { useWish } from '@/contexts/WishContext'
@@ -84,6 +85,7 @@ export default function GamesPage() {
   const wishState = useWish()
   const { weeklyChampion, standings, partnerId, partnerName, claim } = useGamesWeekly()
   const gameSaves = useGameRewards()
+  const indicators = useRewardIndicators()
   const [champDismissed, setChampDismissed] = useState(false)
   const [boardOpen, setBoardOpen] = useState(false)
 
@@ -204,6 +206,7 @@ export default function GamesPage() {
         wish={wish}
         games={games}
         scores={scores}
+        newGames={indicators.newGames}
         onOpenWeek={() => { playSound('ui_tap'); setBoardOpen(true) }}
         onGameTap={() => playSound('ui_tap')}
         saveNotice={<GameSaveNotice pending={gameSaves.pending} busy={gameSaves.busy} error={gameSaves.error} onRetry={() => { void gameSaves.retry() }} />}
@@ -211,7 +214,7 @@ export default function GamesPage() {
 
       {boardOpen && <Leaderboard onClose={() => setBoardOpen(false)} />}
 
-      {weeklyChampion && !weeklyChampion.acknowledged && !champDismissed && (
+      {weeklyChampion && (!weeklyChampion.acknowledged || !weeklyChampion.payout_paid && weeklyChampion.payout_coins > 0) && !champDismissed && (
         <WeeklyGamesChampionPopup
           row={weeklyChampion}
           partnerFirstName={(partnerName ?? 'Partner').split(' ')[0]}

@@ -130,10 +130,10 @@ test('actual context adopts only confirmed snapshots, releases busy and ignores 
   assert.equal((await late).reason,'session_changed');assert.equal(events.length,1);assert.equal(state.busy,false)
 })
 test('actual adoption maps saved fields/events and never computes a local wallet delta',async()=>{
-  browser();const events=[],state={}
+  browser();const events=[],state={},news=[]
   const bindings={useCallback:fn=>fn,user:{id:'user'},completedRef:{current:new Set()},loadCompletions:async()=>{},
     window:{dispatchEvent:event=>events.push(event)},CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail}},
-    Event:class{constructor(type){this.type=type}},PROFILE_UPDATED_EVENT:'profile',ACHIEVEMENT_DEFS:[{id:'first_care'}]}
+    Event:class{constructor(type){this.type=type}},PROFILE_UPDATED_EVENT:'profile',ACHIEVEMENT_DEFS:[{id:'first_care'}],receiveRewardNews:(...entry)=>news.push(entry)}
   for(const field of ['Coins','Xp','Level','Streak','Achievements','CompletedIds'])bindings['set'+field]=value=>{state[field]=value}
   const adopt=callback('adoptReward',bindings)
   assert.equal(adopt({ok:false}),false);assert.equal(events.length,0)
@@ -143,6 +143,8 @@ test('actual adoption maps saved fields/events and never computes a local wallet
   assert.equal(adopt({ok:true,profile:saved,outcome:{tasks:[{id:'daily_feed',period:'daily',periodKey:'daily:today',coins:25,xp:20}],achievements:['first_care'],milestones:[7],milestoneCoins:50}}),true)
   assert.equal(state.Coins,42);assert.equal(state.Xp,20);assert.deepEqual(state.Achievements,saved.achievements)
   assert.ok(state.CompletedIds.has('daily_feed:daily:today'))
+  assert.ok(news.some(entry=>entry[1]==='quests'&&entry[2]==='task:daily_feed:daily:today'))
+  assert.ok(news.some(entry=>entry[1]==='profile'&&entry[2]==='achievement:first_care'))
   assert.deepEqual(events.map(e=>e.type),['profile','eren:quest-complete','eren:streak-milestone','eren:achievement-unlocked'])
 })
 test('road recovery stays available after all rewards are claimed; no split writes remain',()=>{

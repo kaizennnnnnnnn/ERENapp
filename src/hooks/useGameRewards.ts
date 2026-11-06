@@ -7,6 +7,7 @@ import { onForeground } from '@/lib/onForeground'
 import { prepareGameResult, pendingGameSaves, saveGameResult, validGameResult, gameSaveError, GAME_SAVED_EVENT, type ReportGameResultOpts } from '@/lib/gameSaves'
 import type { PendingSavedRequest } from '@/lib/savedRpc'
 import type { GameType } from '@/types'
+import { receiveRewardNews } from '@/lib/rewardNews'
 
 export type { ReportGameResultOpts } from '@/lib/gameSaves'
 export interface GameRewardResult {
@@ -51,6 +52,7 @@ export function useGameRewards(gameType?: GameType) {
       }
       window.dispatchEvent(new CustomEvent<ProfileUpdatedDetail>(PROFILE_UPDATED_EVENT, { detail: { id: actor, patch: { coins: result.coins! } } }))
       window.dispatchEvent(new CustomEvent(GAME_SAVED_EVENT, { detail: { userId: actor, gameType: result.game_type, score: result.score } }))
+      if (run.current?.id !== request.id && result.awarded! > 0) receiveRewardNews(actor, 'play', `run:${request.id}`)
       if (run.current?.id === request.id) setReward({ requestId: request.id, status: 'saved', coins: result.awarded!,
         blocked: result.blocked!, energy: result.energy!, balance: result.coins!, scoreSaved: Boolean(result.score_id) })
       return true

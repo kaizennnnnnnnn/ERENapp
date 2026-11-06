@@ -35,6 +35,7 @@ import HomeHud from '@/components/home/HomeHud'
 import NotifyNudge from '@/components/home/NotifyNudge'
 import RoomDots from '@/components/home/RoomDots'
 import HomeDock, { DOCK_CLEARANCE } from '@/components/home/DockButtons'
+import { useRewardIndicators } from '@/contexts/RewardIndicators'
 import { useHideBottomNav } from '@/components/nav/NavVisibility'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
@@ -97,6 +98,7 @@ const PROFILE_STUCK_MS = 15000
 let roomSeenThisSession = false
 
 export default function HomePage() {
+  const rewardIndicators = useRewardIndicators()
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile, loading: authLoading } = useAuth()
@@ -872,7 +874,7 @@ export default function HomePage() {
 
         {/* ══ BOTTOM DOCK ══ gacha · cake · shawarma · jelly, on the floor of
             the room, just above the nav. */}
-        <HomeDock />
+        <HomeDock alerts={rewardIndicators.places} />
       </HomeRoomFrame>
     </>
   )

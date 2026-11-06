@@ -8,6 +8,7 @@ import { useAuth } from './useAuth'
 import { useInventory } from './useInventory'
 import { useErenStats } from './useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
+import { notifyRewardIndicators } from '@/lib/rewardIndicators'
 import {
   JELLIES, JELLY_SKIN_ID, SUPER_FEEDS_FOR_SKIN, SUPER_JELLY_BUFF, TRAY_SIZE,
   getJelly, rollEffect, rollJelly, type JellyDef, type JellyEffect, type JellyId,
@@ -190,6 +191,7 @@ export function useJellies() {
       }
 
       // The jelly does its thing. Zero hunger/joy/weight → only the buff lands.
+      notifyRewardIndicators()
       const applied = await feedWithFood(user.id, 0, 0, 0, effect.buff)
       if (applied.success && effect.buff.coins) void addCoins(effect.buff.coins)
 
@@ -229,6 +231,7 @@ export function useJellies() {
         return none
       }
 
+      notifyRewardIndicators()
       await feedWithFood(user.id, 0, 0, 0, SUPER_JELLY_BUFF)
       if (SUPER_JELLY_BUFF.coins) void addCoins(SUPER_JELLY_BUFF.coins)
 

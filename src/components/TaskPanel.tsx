@@ -13,7 +13,7 @@
 // the scroll, today's count in ink, then the week's a shade lighter. When the
 // row runs short, the week's count steps out of sight.
 
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { addWeeks, startOfISOWeek, startOfTomorrow } from 'date-fns'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCouple } from '@/hooks/useCouple'
@@ -22,6 +22,8 @@ import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
 import type { TaskId, TaskDef } from '@/types'
 import { playSound } from '@/lib/sounds'
 import { HUD_BUTTON } from './home/HudBadge'
+import NotificationDot from '@/components/meadow/NotificationDot'
+import { useRewardIndicators } from '@/contexts/RewardIndicators'
 import {
   CheckDisc, Divider, IconTile, MeadowIcon, Meter, Segmented, Sheet, PrimaryButton,
   M, TINT, TYPE, type MeadowIconName,
@@ -107,9 +109,11 @@ function QuestRow({ task, done, progress }: { task: TaskDef; done: boolean; prog
 }
 
 export default function TaskPanel() {
-  const { completedIds, taskProgress, rewardError, pendingRewards, rewardBusy, retryRewards } = useTasks()
+  const indicators = useRewardIndicators()
+  const { completedIds, taskProgress, rewardError, pendingRewards, rewardBusy, retryRewards, loading: tasksLoading } = useTasks()
   const [tab, setTab] = useState<Period>('daily')
   const [open, setOpen] = useState(false)
+  useEffect(() => { if (open && !tasksLoading && !rewardError && indicators.news.quests) indicators.markNewsSeen('quests') }, [open, tasksLoading, rewardError, indicators.news.quests, indicators.markNewsSeen])
   // When the sheet opened: the "Resets in" line is worked out from it, so the
   // render stays a pure function of state (and nothing clock-derived renders
   // before the first tap).
@@ -206,18 +210,19 @@ export default function TaskPanel() {
       </Sheet>
 
       <QuestsPill dailyDone={dailyDone} dailyTotal={dailyTasks.length}
-        weeklyDone={weeklyDone} weeklyTotal={weeklyTasks.length} onOpen={openSheet} />
+        weeklyDone={weeklyDone} weeklyTotal={weeklyTasks.length} onOpen={openSheet} rewardWaiting={pendingRewards > 0 || Boolean(rewardError) || indicators.news.quests} />
     </>
   )
 }
 
 /** The quests button in home's row, from plain props. */
-export function QuestsPill({ dailyDone, dailyTotal, weeklyDone, weeklyTotal, onOpen }: {
+export function QuestsPill({ dailyDone, dailyTotal, weeklyDone, weeklyTotal, onOpen, rewardWaiting }: {
   dailyDone: number
   dailyTotal: number
   weeklyDone: number
   weeklyTotal: number
   onOpen: () => void
+  rewardWaiting?: boolean
 }) {
   // Each half is a full-height cell and the pill wraps but is one line tall:
   // when the row runs short (a fortune gift waiting on a narrow phone), the
@@ -228,7 +233,7 @@ export function QuestsPill({ dailyDone, dailyTotal, weeklyDone, weeklyTotal, onO
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Quests: ${dailyDone} of ${dailyTotal} daily, ${weeklyDone} of ${weeklyTotal} weekly`}
+      aria-label={`Quests: ${dailyDone} of ${dailyTotal} daily, ${weeklyDone} of ${weeklyTotal} weekly${rewardWaiting ? ', a reward is waiting' : ''}`}
       className="m-lip m-focus w-full"
       style={{
         '--m-lip': M.overArtLip, '--m-lip-h': '3px',
@@ -239,7 +244,9 @@ export function QuestsPill({ dailyDone, dailyTotal, weeklyDone, weeklyTotal, onO
       } as CSSProperties}
     >
       <span style={cell}>
-        <MeadowIcon name="scroll" size={20} />
+        <span style={{ position: 'relative', lineHeight: 0 }}><MeadowIcon name="scroll" size={20} />
+          {rewardWaiting && <NotificationDot style={{ top: -2, right: -2, width: 10, height: 10 }} />}
+        </span>
         <span>{dailyDone}<span style={{ color: M.faint }}>/{dailyTotal}</span></span>
       </span>
       <span style={{ ...cell, color: M.text2 }}>

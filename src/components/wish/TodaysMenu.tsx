@@ -27,6 +27,8 @@ import FoodIcon from '@/components/care/FoodIcon'
 import { CheckDisc, M, MeadowIcon, RoundButton, TextButton, TINT, TYPE, FONT_ROUNDED } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
+import { useRewardIndicators } from '@/contexts/RewardIndicators'
+import NotificationDot from '@/components/meadow/NotificationDot'
 
 /** Foods with real plate art in public/food; the rest draw as pixel icons. */
 const hasPlate = (id: string) => id === 'donut' || id.startsWith('donut_')
@@ -46,6 +48,8 @@ interface Props {
 export default function TodaysMenu({ menu, progress, complete, claimed, busy, error, onRetry, reward }: Props) {
   const [open, setOpen] = useState(false)
   const cat = useCat()
+  const indicators = useRewardIndicators()
+  useEffect(() => { if (open && indicators.news.menu) indicators.markNewsSeen('menu') }, [open, indicators.news.menu, indicators.markNewsSeen])
   const rootRef = useRef<HTMLDivElement>(null)
   const fedCount = progress.filter(Boolean).length
 
@@ -166,11 +170,12 @@ export default function TodaysMenu({ menu, progress, complete, claimed, busy, er
         surface="art"
         size={40}
         onClick={() => { playSound(open ? 'ui_modal_close' : 'ui_modal_open'); setOpen(o => !o) }}
-        ariaLabel={complete ? "Today's menu, all fed" : `Today's menu, ${fedCount} of ${menu.length} fed`}
+        ariaLabel={(complete ? "Today's menu, all fed" : `Today's menu, ${fedCount} of ${menu.length} fed`) + (indicators.news.menu ? ', new menu reward' : '')}
         expanded={open}
         style={{ position: 'relative' }}
       >
         <MeadowIcon name="bowl" size={22} />
+        {indicators.news.menu && <NotificationDot style={{ left: -3, right: 'auto' }} />}
         {/* Progress badge — the count IS the nag, so the bowl never has to
             animate for attention the way the send-heart does. */}
         <span aria-hidden style={{

@@ -255,6 +255,7 @@ export default function ProfilePage() {
       }}
       togetherDays={anniversary ? anniversary.days : null}
       level={tasksLoading ? null : { level, xpIn, xpNeeded: xpForNextLevel(level) }}
+      levelRewards={tasksLoading || typeof profile?.claimed_level !== 'number' ? 0 : Math.max(0, level - profile.claimed_level)}
       timeSince={firstDay ? format(parseISO(firstDay), 'd MMM') : null}
       achievements={{
         unlocked: unlocked.length,

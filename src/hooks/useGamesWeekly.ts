@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
+import { notifyRewardIndicators } from '@/lib/rewardIndicators'
 import {
   ensureLastWeekGameResult,
   claimWeeklyGamePayout,
@@ -75,6 +76,7 @@ export function useGamesWeekly() {
       }
     }
     await acknowledgeWeeklyGameResult(supabase, user.id, weeklyChampion.iso_week)
+    notifyRewardIndicators()
     setWeeklyChampion({ ...weeklyChampion, payout_paid: true, acknowledged: true })
     return credited
   }, [user?.id, weeklyChampion, supabase])

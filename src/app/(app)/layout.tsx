@@ -19,6 +19,7 @@ import TermsGate from '@/components/legal/TermsGate'
 import AppGuard from '@/components/AppGuard'
 import BottomNav from '@/components/nav/BottomNav'
 import { NavVisibilityProvider } from '@/components/nav/NavVisibility'
+import { RewardIndicatorsProvider } from '@/contexts/RewardIndicators'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -36,6 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <WishProvider>
                   {/* Pages ask the tab bar to step aside through this
                       (useHideBottomNav); the bar reads it. */}
+                  <RewardIndicatorsProvider>
                   <NavVisibilityProvider>
                   <PageSwiper>
                     <div className="fixed top-0 left-0 right-0 z-[60] pointer-events-none">
@@ -57,6 +59,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       tab bar must not swipe home into the Kitchen. */}
                   <BottomNav />
                   </NavVisibilityProvider>
+                  </RewardIndicatorsProvider>
                     </WishProvider>
                   </DailyBattleProvider>
                 </TrophyEffectsProvider>

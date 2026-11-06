@@ -46,7 +46,7 @@ const MACHINES = PAGES.map(p => ({ id: p.id, name: GACHA_BANNERS.find(b => b.id 
 export default function GachaPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
-  const { coins, stardust, pityEpic, pityLegendary, pulling, pullSingle, pullTen, tickets, pullError, retryPull, clearPullError } = useGacha()
+  const { coins, stardust, pityEpic, pityLegendary, pulling, pullSingle, pullTen, tickets, pullError, retryPull, clearPullError, freeFoodReady, freeFoodIn } = useGacha()
   const { refetch: refetchInv } = useInventory()
 
   // Hide the persistent StatsHeader on this subpage; restore on unmount.
@@ -267,10 +267,8 @@ export default function GachaPage() {
       const index = PAGES.findIndex(page => page.id === retryBanner)
       if (index >= 0) goTo(index)
     }
-    // A single pull spends a free ticket whenever one is held — tickets are
-    // earned pulls, so they're used before coins and stay usable at any coin
-    // balance. Falls back to coins only once tickets run out. (x10 is always
-    // coins.) Mirrors the button's own `showTicket` affordance.
+    // The hook uses the daily food offer first, then a held ticket, then coins.
+    // Ten-pulls always use coins; recovery retains its original payment method.
     const useTicket = count === 1 && tickets > 0
     playSound('ui_tap')
     openedWithVideo.current = false
@@ -415,6 +413,8 @@ export default function GachaPage() {
         coins={coins}
         stardust={stardust}
         tickets={tickets}
+        freeFoodReady={freeFoodReady}
+        freeFoodIn={freeFoodIn}
         pityEpic={pityEpic}
         pityLegendary={pityLegendary}
         pulling={pulling}

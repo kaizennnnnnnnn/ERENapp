@@ -9,6 +9,7 @@ import { dailyMenu, menuProgress, MENU_REWARD } from '@/lib/foodMenu'
 import { todayKey } from '@/lib/seededRng'
 import { onForeground } from '@/lib/onForeground'
 import { saveMenu, hasPendingMenu, menuSaveError } from '@/lib/menuSaves'
+import { receiveRewardNews } from '@/lib/rewardNews'
 
 export function useFoodMenu(householdId: string | null | undefined) {
   const { stats, acceptMenuState } = useErenStats(householdId ?? null)
@@ -55,6 +56,7 @@ export function useFoodMenu(householdId: string | null | undefined) {
           detail: { id: actor, patch: { coins: result.coins } },
         }))
         if (result.menu_state.day === day) acceptMenuState(result.menu_state)
+        if (result.awarded! > 0) receiveRewardNews(actor, 'menu', `menu:${result.day}`)
         if (result.day !== day && attempt === 0) continue
         return true
       }

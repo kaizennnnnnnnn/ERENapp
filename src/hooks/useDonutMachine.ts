@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { writeWithRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { msUntilFreeSpin } from '@/lib/donuts'
+import { notifyRewardIndicators } from '@/lib/rewardIndicators'
 
 const lsKey = (userId: string) => `eren_donut_free_${userId}`
 
@@ -80,6 +81,7 @@ export function useDonutMachine(userId: string | null | undefined) {
     setLoaded(true)
     setReadError(false)
     cache(stamp)
+    notifyRewardIndicators()
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
