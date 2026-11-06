@@ -279,7 +279,7 @@ const RARITY_WORD: Record<FortuneGiftDef['rarity'], string> = {
 }
 
 export default function FortunePopup({ onClose }: Props) {
-  const { canClaim, claiming, claimFortune } = useFortune()
+  const { canClaim, claiming, claimFortune, loaded, readError, error, recoverable, refresh } = useFortune()
   const cat = useCat()
   const [gift, setGift] = useState<FortuneGiftDef | null>(null)
   const [phase, setPhase] = useState<Phase>('intro')
@@ -289,7 +289,9 @@ export default function FortunePopup({ onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
-  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  const alive = useRef(true)
+  const claimLock = useRef(false)
+  useEffect(() => { alive.current = true; return () => { alive.current = false; timers.current.forEach(clearTimeout) } }, [])
 
   // Countdown to the next gift, refreshed every minute while the popup is open.
   const [untilNext, setUntilNext] = useState(timeUntilMidnight)
@@ -326,16 +328,19 @@ export default function FortunePopup({ onClose }: Props) {
   }
 
   async function handleClaim() {
-    if (!canClaim || claiming) return
+    if (!canClaim || claiming || claimLock.current) return
+    claimLock.current = true
     playSound('ui_tap')
     setFailed(false)
     setPhase('shake')
     const start = Date.now()
-    const result = await claimFortune()
+    let result: FortuneGiftDef | null = null
+    try { result = await claimFortune() }
+    catch { /* Return to the retry controls even for an unexpected failure. */ }
+    finally { claimLock.current = false }
+    if (!alive.current) return
     if (!result) {
-      // Claim aborted (Supabase outage: the hook restored canClaim and wrote
-      // nothing). Back to the intro with the button, and say so; staying on
-      // 'shake' would trap the user on a card with no controls.
+      // An ambiguous save keeps its original receipt for the recovery tap.
       setPhase('intro')
       setFailed(true)
       return
@@ -435,6 +440,8 @@ export default function FortunePopup({ onClose }: Props) {
             <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
               {phase !== 'intro'
                 ? 'Opening your gift'
+                : recoverable ? 'Your gift is waiting for confirmation.'
+                : !loaded || readError ? 'Checking your daily gift.'
                 : cat.t(canClaim ? '{name} has a gift for you.' : '{name} is wrapping the next one.')}
             </p>
 
@@ -442,18 +449,28 @@ export default function FortunePopup({ onClose }: Props) {
               <>
                 {failed && (
                   <p role="alert" style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.4, fontWeight: 700, color: M.danger }}>
-                    The gift didn&apos;t open. Check your connection and try again.
+                    {error ?? 'The gift did not open. Please try again.'}
                   </p>
                 )}
                 <PrimaryButton onClick={handleClaim} busy={claiming} style={{ marginTop: 18 }}
                   icon={<MeadowIcon name="gift" size={20} color="#FFFFFF" mono />}>
-                  Open gift
+                  {recoverable ? 'Recover gift' : 'Open gift'}
                 </PrimaryButton>
                 <TextButton tone="muted" onClick={dismiss} style={{ marginTop: 4 }}>Not now</TextButton>
+              </>
+            ) : !loaded || readError ? (
+              <>
+                <p role="status" style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.4, fontWeight: 700, color: M.text2 }}>
+                  {readError ? 'Could not check your gift. Please retry.' : 'Loading your gift...'}
+                </p>
+                {readError && <PrimaryButton onClick={() => { void refresh() }} style={{ marginTop: 16 }}
+                  icon={<MeadowIcon name="replay" size={20} color="#FFFFFF" mono />}>Retry</PrimaryButton>}
+                <TextButton tone="muted" onClick={dismiss} style={{ marginTop: 4 }}>Close</TextButton>
               </>
             ) : (
               <>
                 {/* Answers the only question left: when is the next one. */}
+                {failed && error && <p role="alert" style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.4, color: M.text2 }}>{error}</p>}
                 <div style={{
                   marginTop: 16, width: '100%', boxSizing: 'border-box', padding: '12px 16px',
                   borderRadius: 20, background: M.soft,

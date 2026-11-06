@@ -210,6 +210,8 @@ export default function StatsHeader() {
     const onBurst = (e: Event) => {
       const d = (e as CustomEvent<{ x: number; y: number; amount: number }>).detail
       if (!d) return
+      // Recovery can reveal coins the counter already knows about.
+      coinClaimRef.current = false
       launchCoinFlight({ origin: { x: d.x, y: d.y }, count: coinCountFor(d.amount) })
       if (awaitingBurstRef.current) {
         awaitingBurstRef.current = false

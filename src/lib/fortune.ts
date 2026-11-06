@@ -35,7 +35,7 @@ export const FORTUNE_GIFTS: FortuneGiftDef[] = [
   { id: 'fortune_golden_bell',  name: 'Golden Bell',          icon: 'bell',     rarity: 'legendary', description: 'A magical bell that rings by itself.' },
 ]
 
-const FORTUNE_WEIGHTS: Record<GachaRarity, number> = {
+export const FORTUNE_WEIGHTS: Record<GachaRarity, number> = {
   common: 55, rare: 30, epic: 12, legendary: 3,
 }
 
@@ -56,6 +56,9 @@ export function canClaimFortune(lastClaim: string | null): boolean {
   if (!lastClaim) return true
   const last = new Date(lastClaim)
   const now = new Date()
-  // Can claim if it's a new calendar day
-  return last.toDateString() !== now.toDateString()
+  if (!Number.isFinite(last.getTime())) return false
+  // A future or malformed stamp must not become another daily gift.
+  last.setHours(0, 0, 0, 0)
+  now.setHours(0, 0, 0, 0)
+  return last < now
 }

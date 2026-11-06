@@ -104,7 +104,8 @@ export default function HomePage() {
   const { setIsSick, openScene, setHideStats, activeScene } = useCare()
   const { xp } = useTasks()
   useTimeTracking(user?.id ?? null)
-  const { canClaim: fortuneAvailable } = useFortune()
+  const { canClaim: fortuneClaimable, readError: fortuneReadError } = useFortune()
+  const fortuneAvailable = fortuneClaimable || fortuneReadError
   const { newMessage, dismissPopup, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, giftArrivals, markGiftsSeen } = useCouple()
   const { inventory, loaded: invLoaded } = useInventory()
   const newSkinCount = useNewSkins(inventory, invLoaded)
