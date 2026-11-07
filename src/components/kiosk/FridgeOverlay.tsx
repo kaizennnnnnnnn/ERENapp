@@ -7,8 +7,9 @@
 // thing that happens because you touched a tomato. The cola is a single tap,
 // since you're taking one can, not filling anything.
 
-import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { RoundButton, MeadowIcon } from '@/components/meadow'
+import { KIOSK as K, kioskPanel, kioskRound, KIOSK_CSS } from './kioskTheme'
 import { playSound } from '@/lib/sounds'
 import HoldTarget from './HoldTarget'
 import { useCoverBox } from './useCoverBox'
@@ -28,31 +29,47 @@ interface Props {
 /** Shared chrome for the two kinds of shelf button. */
 function face(live: boolean): React.CSSProperties {
   return {
-    display: 'block', whiteSpace: 'nowrap',
-    fontSize: 6.5, letterSpacing: 1,
-    color: live ? '#3A1B08' : 'rgba(255,231,196,0.4)',
-    background: live ? '#F59C45' : 'rgba(28,20,16,0.85)',
-    padding: '8px 7px 7px',
-    border: `2px solid ${live ? '#5A2E12' : 'rgba(245,156,69,0.28)'}`,
-    borderRadius: 6,
-    boxShadow: live ? '0 3px 0 #DC772A' : '0 3px 0 rgba(0,0,0,0.5)',
+    ...kioskPanel, display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap',
+    fontSize: 13, fontWeight: 800, letterSpacing: 0, minHeight: 44, minWidth: 72,
+    color: live ? K.ground : K.faint,
+    background: live ? K.leaf : K.surface, padding: '10px 12px',
   }
 }
 
 export default function FridgeOverlay({ stock, hasCola, onRestock, onTakeCola, onClose }: Props) {
-  const box = useCoverBox(768, 1376)
+  const dialog = useRef<HTMLDivElement>(null)
+  const box = useCoverBox(768, 1376, dialog)
 
   useEffect(() => { playSound('ui_modal_open') }, [])
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null
+    dialog.current?.focus({ preventScroll: true })
+    return () => before?.focus({ preventScroll: true })
+  }, [])
 
   return (
-    <div className="fixed inset-0 z-[70] overflow-hidden select-none"
-      style={{ background: '#050408', animation: 'kioskFridgeIn 480ms cubic-bezier(0.16, 1, 0.3, 1) both' }}
+    <div ref={dialog} tabIndex={-1} className="meadow-root kiosk-theme fixed inset-0 z-[70] overflow-hidden select-none"
+      role="dialog" aria-modal="true" aria-label="Fridge"
+      style={{ background: '#050408', outline: 'none', animation: 'kioskFridgeIn 480ms cubic-bezier(0.16, 1, 0.3, 1) both' }}
+      onKeyDown={event => {
+        if (event.key === 'Escape') { event.stopPropagation(); playSound('ui_modal_close'); onClose(); return }
+        if (event.key !== 'Tab') return
+        const targets = dialog.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])')
+        if (!targets?.length) return
+        const first = targets[0], last = targets[targets.length - 1]
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { event.preventDefault(); last.focus() }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { event.preventDefault(); first.focus() }
+      }}
       // Same trap as the walls: the fridge picture is wider than the screen,
       // so focusing a shelf button scrolls this box sideways for good.
       onScroll={e => {
         const el = e.currentTarget
         if (el.scrollLeft || el.scrollTop) { el.scrollLeft = 0; el.scrollTop = 0 }
       }}>
+      <style dangerouslySetInnerHTML={{ __html: KIOSK_CSS }} />
+      <div style={{ ...kioskPanel, position: 'absolute', zIndex: 1, left: 12, top: 'calc(14px + env(safe-area-inset-top, 0px))', padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 800 }}>
+        <MeadowIcon name="door" size={20} mono color={K.leaf} />Fridge
+      </div>
 
       <div style={{ position: 'absolute', left: box.left, top: box.top, width: box.width, height: box.height }}>
         <img src="/FridgeOpen.webp" alt="Open fridge" draggable={false}
@@ -90,13 +107,13 @@ export default function FridgeOverlay({ stock, hasCola, onRestock, onTakeCola, o
                   transform: 'translate(-50%, -50%)',
                 }}
               >
-                <span className="font-pixel" style={face(!full)}>REFILL</span>
+                <span style={face(!full)}>{full ? 'Full' : 'Refill'}</span>
                 {/* Above the button, not below — the shelf in front eats
                     anything that hangs off the bottom. */}
-                <span className="font-pixel" style={{
+                <span style={{
                   position: 'absolute', left: '50%', top: -12, transform: 'translateX(-50%)',
-                  fontSize: 6, letterSpacing: 0.5, whiteSpace: 'nowrap',
-                  color: full ? 'rgba(255,231,196,0.45)' : '#FFD2A8',
+                  fontSize: 12, fontWeight: 800, letterSpacing: 0, whiteSpace: 'nowrap',
+                  color: K.text, background: K.ground, borderRadius: 4, padding: '1px 6px',
                 }}>
                   {stock[t.id]}/{MAX_USES}
                 </span>
@@ -135,36 +152,22 @@ export default function FridgeOverlay({ stock, hasCola, onRestock, onTakeCola, o
                   background: 'none', border: 0, padding: 0,
                 }}
               >
-                <span className="font-pixel" style={face(!hasCola)}>TAKE</span>
+                <span style={face(!hasCola)}>{hasCola ? 'Taken' : 'Take'}</span>
               </button>
             </>
           )
         })()}
       </div>
 
-      {/* Hint — the hold isn't discoverable on its own. */}
-      <div className="absolute left-1/2 font-pixel pointer-events-none" style={{
-        bottom: 'calc(22px + env(safe-area-inset-bottom, 0px))', transform: 'translateX(-50%)',
-        fontSize: 6.5, letterSpacing: 1, color: '#FFE7C4',
-        background: 'rgba(0,0,0,0.5)', padding: '6px 10px', borderRadius: 9, whiteSpace: 'nowrap',
-      }}>
-        PRESS AND HOLD REFILL
-      </div>
-
-      <button
-        type="button"
+      <RoundButton
         onClick={() => { playSound('ui_modal_close'); onClose() }}
-        aria-label="Close the fridge"
-        className="absolute flex items-center justify-center active:scale-90 transition-transform"
+        ariaLabel="Close the fridge"
         style={{
-          top: 'calc(8px + env(safe-area-inset-top, 0px))', right: 12,
-          width: 32, height: 32, borderRadius: 6,
-          background: 'rgba(20,10,8,0.7)',
-          border: '2px solid rgba(245,156,69,0.65)',
-          boxShadow: '0 2px 0 rgba(0,0,0,0.45)',
+          ...kioskRound, position: 'absolute', zIndex: 1,
+          top: 'calc(14px + env(safe-area-inset-top, 0px))', right: 12,
         }}>
-        <X size={16} className="text-orange-100" />
-      </button>
+        <MeadowIcon name="close" size={20} mono color={K.text} />
+      </RoundButton>
     </div>
   )
 }

@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { RADIO_BOX, RADIO_SPRITE } from './kioskShift'
 import { STATIONS } from '@/lib/kioskRadio'
+import { KIOSK as K, kioskPanel } from './kioskTheme'
 
 interface Props {
   /** 0 is off; 1–3 are the stations. */
@@ -38,16 +39,14 @@ export default function KioskRadio({ station, onCycle }: Props) {
       {/* What you just tuned to. Above the set, on the shadowed wall, so it
           reads against something dark. */}
       {showName && (
-        <span className="font-pixel pointer-events-none" style={{
+        <span className="pointer-events-none" style={{
+          ...kioskPanel,
           position: 'absolute',
           left: `${RADIO_BOX.x}%`, top: `${RADIO_BOX.top - 5.4}%`,
           transform: 'translateX(-50%)', whiteSpace: 'nowrap',
           zIndex: 5,
-          fontSize: 6, letterSpacing: 1.2,
-          color: on ? '#FFE7C4' : 'rgba(255,231,196,0.55)',
-          background: 'rgba(10,7,6,0.75)',
-          border: `2px solid ${on ? 'rgba(245,156,69,0.5)' : 'rgba(200,190,205,0.25)'}`,
-          borderRadius: 6, padding: '5px 7px 4px',
+          fontSize: 13, fontWeight: 700, letterSpacing: 0,
+          color: on ? K.text : K.muted, padding: '7px 10px',
           animation: 'kioskLineIn 260ms ease-out both',
         }}>
           {name}

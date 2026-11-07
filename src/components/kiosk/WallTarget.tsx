@@ -7,6 +7,8 @@
 // and without a tag on them there is nothing to tell you the wall is
 // interactive at all. The tag pulses, sits on the object, and points at it.
 
+import { KIOSK as K, kioskPanel } from './kioskTheme'
+
 interface Props {
   /** Hit area, in % of the picture. */
   hit: { left: number; top: number; width: number; height: number }
@@ -34,22 +36,17 @@ export default function WallTarget({ hit, tag, label, onClick, urgent, 'aria-lab
         zIndex: 5,
       }}
     >
-      <span className="font-pixel" style={{
+      <span style={{
+        ...kioskPanel,
         position: 'absolute',
         left: `${(tag.x - hit.left) / hit.width * 100}%`,
         top: `${(tag.y - hit.top) / hit.height * 100}%`,
         transform: 'translate(-50%, -50%)',
         whiteSpace: 'nowrap',
-        fontSize: 7, letterSpacing: 1,
-        color: urgent ? '#3A1B08' : '#FFE7C4',
-        background: urgent ? '#F59C45' : 'rgba(12,9,7,0.82)',
-        padding: '7px 9px 6px',
-        border: `2px solid ${urgent ? '#5A2E12' : 'rgba(245,156,69,0.7)'}`,
-        borderRadius: 7,
-        boxShadow: urgent
-          ? '0 3px 0 #DC772A, 0 0 16px rgba(245,156,69,0.4)'
-          : '0 3px 0 rgba(0,0,0,0.5), 0 0 14px rgba(245,156,69,0.22)',
-        animation: 'kioskHint 2.2s ease-in-out infinite',
+        fontSize: 13, fontWeight: 800, letterSpacing: 0,
+        color: urgent ? K.ground : K.text,
+        background: urgent ? K.leaf : K.surface,
+        padding: '11px 13px',
       }}>
         {label}
       </span>

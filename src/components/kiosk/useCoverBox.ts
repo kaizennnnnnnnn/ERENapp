@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 
 /**
  * Where a 768×1376 wall actually lands on screen once it's been `cover`-cropped.
@@ -11,27 +11,30 @@ import { useEffect, useState } from 'react'
  * with exactly these bounds, or it drifts off its target the moment the
  * viewport aspect changes. Children then position in plain % of the picture.
  */
-export function useCoverBox(picW: number, picH: number) {
-  const [box, setBox] = useState(() => compute(picW, picH))
+export function useCoverBox(picW: number, picH: number, frame: RefObject<HTMLElement>) {
+  const [box, setBox] = useState(() => compute(picW, picH, frame.current))
 
   useEffect(() => {
-    const onResize = () => setBox(compute(picW, picH))
+    const onResize = () => setBox(compute(picW, picH, frame.current))
     onResize()
+    const observer = new ResizeObserver(onResize)
+    if (frame.current) observer.observe(frame.current)
     window.addEventListener('resize', onResize)
     window.addEventListener('orientationchange', onResize)
     return () => {
+      observer.disconnect()
       window.removeEventListener('resize', onResize)
       window.removeEventListener('orientationchange', onResize)
     }
-  }, [picW, picH])
+  }, [picW, picH, frame])
 
   return box
 }
 
-function compute(picW: number, picH: number) {
+function compute(picW: number, picH: number, frame: HTMLElement | null) {
   if (typeof window === 'undefined') return { left: 0, top: 0, width: picW, height: picH }
-  const vw = window.innerWidth
-  const vh = window.innerHeight
+  const vw = frame?.clientWidth || window.innerWidth
+  const vh = frame?.clientHeight || window.innerHeight
   const scale = Math.max(vw / picW, vh / picH)
   const width = picW * scale
   const height = picH * scale

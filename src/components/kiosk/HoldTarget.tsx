@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { playSound } from '@/lib/sounds'
+import { KIOSK } from './kioskTheme'
 
 interface Props {
   /** ms of unbroken hold before it fires. */
@@ -23,7 +24,7 @@ interface Props {
 }
 
 export default function HoldTarget({
-  duration = 900, onComplete, color = '#F59C45', size = 54,
+  duration = 900, onComplete, color = KIOSK.leaf, size = 54,
   disabled, className, style, children, 'aria-label': ariaLabel,
 }: Props) {
   const [progress, setProgress] = useState(0)
@@ -38,6 +39,7 @@ export default function HoldTarget({
   }, [])
 
   useEffect(() => stop, [stop])
+  useEffect(() => { if (disabled) stop() }, [disabled, stop])
 
   const begin = useCallback(() => {
     if (disabled || rafRef.current !== null) return
@@ -67,11 +69,17 @@ export default function HoldTarget({
       aria-label={ariaLabel}
       disabled={disabled}
       className={className}
-      style={{ position: 'absolute', border: 0, background: 'none', padding: 0, ...style }}
+      title={ariaLabel ? `${ariaLabel} (hold)` : 'Hold to complete'}
+      style={{ position: 'absolute', border: 0, background: 'none', padding: 0, minHeight: 44, minWidth: 44, touchAction: 'none', ...style }}
       onPointerDown={begin}
       onPointerUp={stop}
       onPointerLeave={stop}
       onPointerCancel={stop}
+      onBlur={stop}
+      onKeyDown={e => {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) begin() }
+      }}
+      onKeyUp={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); stop() } }}
       onContextMenu={e => e.preventDefault()}
     >
       {children}

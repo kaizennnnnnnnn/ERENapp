@@ -124,6 +124,12 @@ Do not introduce a separate code-drawn clinic backdrop.
 
 ### Screenshots without logging in
 
+The shawarma kiosk has an owner-approved dark Meadow variant. Its scoped tokens live in
+`src/components/kiosk/kioskTheme.ts`: charcoal/forest surfaces, readable rounded type,
+leaf actions, and amber earnings/heat. Keep the existing painted walls and game sprites.
+Do not apply these dark surfaces to other rooms. Artwork overlays measure the existing
+app frame through `useCoverBox`, including its narrower desktop dimensions.
+
 The `(app)` routes need a session, so previews render the screen from a throwaway route **outside**
 `(app)` and fake the backend inside the browser. Run the preview from a separate git worktree: a second
 `next dev` in this folder shares `.next` with the one already running and breaks it.

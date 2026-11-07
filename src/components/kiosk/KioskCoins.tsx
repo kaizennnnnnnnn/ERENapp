@@ -18,6 +18,8 @@
 
 import { useLayoutEffect, useRef, useState } from 'react'
 import { IconCoin } from '@/components/PixelIcons'
+import { MeadowIcon, TYPE } from '@/components/meadow'
+import { KIOSK as K, kioskPanel } from './kioskTheme'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { STREAK_CAP, type Takings } from './kioskEconomy'
@@ -106,18 +108,14 @@ export default function KioskCoins({ paid, till, streak, practice }: Props) {
     }}>
       {/* Measured for the flight, so the coins know where they're going. */}
       <div ref={pillRef} style={{ position: 'relative' }}>
-        <div key={popKey} className="font-pixel" style={{
+        <div key={popKey} style={{
+          ...kioskPanel,
           display: 'flex', alignItems: 'center', gap: 6,
-          padding: '7px 10px 6px',
-          background: 'rgba(14,10,8,0.82)',
-          border: '2px solid rgba(245,156,69,0.5)',
-          borderRadius: 9,
-          boxShadow: '0 3px 0 rgba(0,0,0,0.5), 0 0 14px rgba(245,156,69,0.16)',
-          backdropFilter: 'blur(3px)',
-          fontSize: 9, letterSpacing: 0.5, color: '#FFD98A',
+          padding: '10px 13px', minWidth: 84, justifyContent: 'center',
+          fontSize: 20, letterSpacing: 0, color: K.coin, ...TYPE.number,
           animation: popKey ? 'hudNumPop 460ms cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
         }}>
-          <IconCoin size={13} />
+          <MeadowIcon name="coin" size={21} />
           {shown.toLocaleString()}
         </div>
 
@@ -137,9 +135,9 @@ export default function KioskCoins({ paid, till, streak, practice }: Props) {
         {/* What the last bag was worth, riding under the pill while it's in
             the air. */}
         {pending > 0 && (
-          <span key={`p${paid?.id}`} className="font-pixel" style={{
+          <span key={`p${paid?.id}`} style={{
             position: 'absolute', top: '100%', right: 2, marginTop: 5,
-            whiteSpace: 'nowrap', fontSize: 8, color: '#FFC773',
+            whiteSpace: 'nowrap', fontSize: 14, fontWeight: 800, color: K.coin,
             textShadow: '0 1px 0 rgba(0,0,0,0.7)',
             animation: 'kioskEarn 900ms ease-out both',
           }}>
@@ -151,26 +149,21 @@ export default function KioskCoins({ paid, till, streak, practice }: Props) {
       {/* A run worth protecting. Only from two: one correct order in a row is
           just an order. */}
       {streak >= 2 && (
-        <div key={streak} className="font-pixel" style={{
-          padding: '4px 7px 3px',
-          fontSize: 6, letterSpacing: 1,
-          color: '#3A1B08', background: '#F5C049',
-          border: '2px solid #7C4A12', borderRadius: 7,
-          boxShadow: '0 2px 0 #B8862A',
+        <div key={streak} style={{
+          ...kioskPanel, padding: '4px 8px',
+          fontSize: 12, letterSpacing: 0, fontWeight: 700, color: K.coin,
           animation: 'hudNumPop 420ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
-          {streak}{streak >= STREAK_CAP ? '+' : ''} IN A ROW
+          {streak}{streak >= STREAK_CAP ? '+' : ''} in a row
         </div>
       )}
 
       {practice && (
-        <div className="font-pixel" style={{
-          padding: '4px 7px 3px',
-          fontSize: 5.5, letterSpacing: 1, color: 'rgba(255,231,196,0.7)',
-          background: 'rgba(14,10,8,0.7)',
-          border: '2px solid rgba(200,190,205,0.28)', borderRadius: 7,
+        <div style={{
+          ...kioskPanel, padding: '4px 8px',
+          fontSize: 12, fontWeight: 700, color: K.muted,
         }}>
-          PRACTICE
+          Practice
         </div>
       )}
     </div>

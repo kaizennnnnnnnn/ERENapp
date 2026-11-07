@@ -15,6 +15,7 @@
 
 import HoldTarget from './HoldTarget'
 import CarveKnife from './CarveKnife'
+import { KIOSK as K, kioskPanel } from './kioskTheme'
 import {
   MEAT_FRAMES, MAX_USES, SPIT_BOX, MEAT_BTN, smokeVents,
   MEAT_RAW_MS, MEAT_GOOD_MS, meatHeat01, type MeatState,
@@ -38,7 +39,7 @@ interface Props {
 const GAUGE = { x: 80, y: 28, width: 19 }
 
 const HEAT_WORD: Record<MeatState, string> = {
-  raw: 'NOT READY', good: 'READY', charred: 'BURNING',
+  raw: 'Warming', good: 'Ready', charred: 'Burning',
 }
 const HEAT_COLOR: Record<MeatState, string> = {
   raw: '#7FA8D8', good: '#7ED678', charred: '#E4483C',
@@ -121,8 +122,8 @@ export default function MeatSpit({ meat, meatOn, cooked, canCarve, onCarve, onRe
         }}>
           <div style={{
             position: 'relative', width: '100%', height: 8,
-            background: 'rgba(8,6,5,0.82)',
-            border: '2px solid rgba(245,156,69,0.4)',
+            background: K.ground,
+            border: `1px solid ${K.line}`,
             borderRadius: 5, overflow: 'hidden',
             boxShadow: '0 2px 0 rgba(0,0,0,0.5)',
           }}>
@@ -139,10 +140,9 @@ export default function MeatSpit({ meat, meatOn, cooked, canCarve, onCarve, onRe
               transition: 'transform 200ms linear, background 600ms ease',
             }} />
           </div>
-          <span className="font-pixel" style={{
-            fontSize: 5.5, letterSpacing: 1, color: HEAT_COLOR[cooked],
-            textShadow: '0 1px 0 rgba(0,0,0,0.8)',
-            animation: burnt ? 'kioskHint 1.1s ease-in-out infinite' : undefined,
+          <span style={{
+            fontSize: 12, fontWeight: 800, letterSpacing: 0, color: HEAT_COLOR[cooked],
+            background: K.ground, padding: '2px 7px', borderRadius: 4,
           }}>
             {HEAT_WORD[cooked]}
           </span>
@@ -167,18 +167,13 @@ export default function MeatSpit({ meat, meatOn, cooked, canCarve, onCarve, onRe
           zIndex: 5,
         }}
       >
-        <span className="font-pixel" style={{
-          display: 'block', whiteSpace: 'nowrap',
-          fontSize: 7, letterSpacing: 1,
-          color: canLoad ? '#3A1B08' : 'rgba(255,231,196,0.4)',
-          background: canLoad ? '#F59C45' : 'rgba(28,20,16,0.85)',
-          padding: '9px 8px 8px',
-          border: `2px solid ${canLoad ? '#5A2E12' : 'rgba(245,156,69,0.28)'}`,
-          borderRadius: 7,
-          boxShadow: canLoad ? '0 3px 0 #DC772A, 0 0 14px rgba(245,156,69,0.35)' : '0 3px 0 rgba(0,0,0,0.5)',
-          animation: canLoad ? 'kioskHint 1.8s ease-in-out infinite' : undefined,
+        <span style={{
+          ...kioskPanel, display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap',
+          fontSize: 13, fontWeight: 800, letterSpacing: 0, minHeight: 44, minWidth: 72,
+          color: canLoad ? K.ground : K.faint,
+          background: canLoad ? K.leaf : K.surface, padding: '10px 12px',
         }}>
-          LOAD
+          Load
         </span>
       </HoldTarget>
     </>

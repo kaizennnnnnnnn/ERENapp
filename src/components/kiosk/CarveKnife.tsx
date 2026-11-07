@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import { KNIFE, KNIFE_SPRITE, KNIFE_TAG, CARVE_TRAVEL, CARVE_BAR, SHAVED_MEAT } from './kioskShift'
+import { KIOSK as K, kioskPanel } from './kioskTheme'
 
 interface Props {
   /** False when the spit is bare, the wrap already has meat, or it's rolled. */
@@ -202,16 +203,14 @@ export default function CarveKnife({ canCarve, onCarve }: Props) {
           itself: that it's yours to move. Pinned to the wall rather than to
           the blade, so it holds still while the blade doesn't. */}
       {canCarve && !held && progress === 0 && (
-        <span className="font-pixel" style={{
+        <span style={{
+          ...kioskPanel,
           position: 'absolute', left: `${KNIFE_TAG.x}%`, top: `${KNIFE_TAG.y}%`,
           transform: 'translate(-50%, -50%)', whiteSpace: 'nowrap',
-          fontSize: 6, letterSpacing: 0.6, color: '#3A1B08',
-          background: '#F59C45', padding: '7px 7px 6px',
-          border: '2px solid #5A2E12', borderRadius: 6,
-          boxShadow: '0 3px 0 #DC772A',
-          animation: 'kioskHint 1.8s ease-in-out infinite',
+          fontSize: 13, fontWeight: 800, letterSpacing: 0, color: K.leaf,
+          padding: '9px 12px',
         }}>
-          ‹ HOLD · SAW
+          Carve
         </span>
       )}
 

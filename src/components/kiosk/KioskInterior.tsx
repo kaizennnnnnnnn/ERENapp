@@ -45,12 +45,15 @@ import CashRegister, { TILL_MS } from './CashRegister'
 import Shutter, { SHUTTER_MS, SHUTTER_STILL_MS } from './Shutter'
 import { ShiftNote, ChampionApron } from './WallProps'
 import {
-  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, WEATHER_BY_ID, unlockedBetween,
+  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, unlockedBetween,
   type WeatherId,
 } from './kioskShift'
-import { orderBase, SHIFT_MS, NIGHT_GOAL } from './kioskEconomy'
+import { orderBase } from './kioskEconomy'
 import { KIOSK_KEYFRAMES } from './kioskKeyframes'
 import type { KioskRecord } from './useKioskRecord'
+import KioskClock from './KioskClock'
+import KioskStations from './KioskStations'
+import { KIOSK_CSS } from './kioskTheme'
 
 interface KioskView {
   id: string
@@ -90,7 +93,6 @@ const MIST_MS: Record<WeatherId, number> = {
 }
 
 // Lamp amber, the same hue as the dock button that leads here.
-const LAMP = '#F59C45'
 // Sparse dust-in-lamplight instead of the care rooms' pink/violet fairy dust.
 const DUST = ['#F5C89A', '#FFE7C4', '#C98F4E', '#FFFFFF']
 
@@ -106,6 +108,7 @@ interface Props {
 }
 
 export default function KioskInterior({ onExit, record, payable, practiceReason }: Props) {
+  const frame = useRef<HTMLDivElement>(null)
   const [idx, setIdx] = useState(0)
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left')
   const [animKey, setAnimKey] = useState(0)
@@ -150,7 +153,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   const phone = useKioskPhone()
   // Anything pinned to the art has to live inside the cover-cropped picture
   // box, not the viewport, or it slides off its pan on a different screen.
-  const box = useCoverBox(768, 1376)
+  const box = useCoverBox(768, 1376, frame)
   // A hundred drops falling for four minutes is exactly the kind of endless
   // decorative motion the reduced-motion setting is asking about. The weather
   // stays — it still reads as a wet night, it just stops moving.
@@ -271,20 +274,6 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     fn()
   }, [])
 
-  // Wall-name label: shown on arrival so you know where you're standing,
-  // then faded out. Same 1.4s dwell as the care rooms.
-  const [labelVisible, setLabelVisible] = useState(true)
-  const labelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const flashLabel = useCallback(() => {
-    setLabelVisible(true)
-    if (labelTimerRef.current) clearTimeout(labelTimerRef.current)
-    labelTimerRef.current = setTimeout(() => setLabelVisible(false), 1400)
-  }, [])
-  useEffect(() => {
-    flashLabel()
-    return () => { if (labelTimerRef.current) clearTimeout(labelTimerRef.current) }
-  }, [flashLabel])
-
   function navigate(dir: 'left' | 'right') {
     const next = dir === 'left'
       ? (idx + 1) % VIEWS.length
@@ -293,7 +282,6 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     setSlideDir(dir)
     setAnimKey(k => k + 1)
     setIdx(next)
-    flashLabel()
   }
 
   /** Spin straight round to a wall, the short way. The ringing chip uses it
@@ -306,7 +294,6 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     setSlideDir(forward <= VIEWS.length - forward ? 'left' : 'right')
     setAnimKey(k => k + 1)
     setIdx(target)
-    flashLabel()
   }
 
   function onTouchStart(e: React.TouchEvent) {
@@ -326,7 +313,6 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     if (!isDragging.current) {
       if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
         isDragging.current = true
-        flashLabel()
       } else {
         return
       }
@@ -346,7 +332,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     isDragging.current = false
     lastDragEnd.current = Date.now()
 
-    const threshold = window.innerWidth * 0.2
+    const threshold = (frame.current?.clientWidth ?? window.innerWidth) * 0.2
     if (Math.abs(dx) > threshold || velocity > 0.4) {
       if (Math.abs(dx) > Math.abs(dy) * 1.2) navigate(dx > 0 ? 'left' : 'right')
     }
@@ -384,7 +370,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     ambience.current?.setPower(shift.blackout ? 0 : 1)
   }, [shift.blackout])
   const dragging = dragX !== 0
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 390
+  const vw = frame.current?.clientWidth ?? (typeof window !== 'undefined' ? window.innerWidth : 390)
   const dragProgress = Math.min(1, Math.abs(dragX) / vw)
 
   const wallStyle: React.CSSProperties = dragging
@@ -398,7 +384,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     : (slideDir === 'left' ? 'left' : 'right')
 
   return (
-    <div className="absolute inset-0 overflow-hidden select-none game-shell"
+    <div ref={frame} className="meadow-root kiosk-theme absolute inset-0 overflow-hidden select-none game-shell"
       // The walls are wider than the screen, so the pans at either end hang
       // off the edge. Tapping one focuses it, and the browser answers by
       // scrolling this box to bring it into view — which slides the whole
@@ -416,7 +402,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           mismatch threw away the whole server tree and re-rendered the root
           on the client, every time, invisibly. The content is a compile-time
           constant in this file's own module; there is no input to sanitise. */}
-      <style dangerouslySetInnerHTML={{ __html: KIOSK_KEYFRAMES }} />
+      <style dangerouslySetInnerHTML={{ __html: KIOSK_KEYFRAMES + KIOSK_CSS }} />
 
       {/* ══ THE GAP ══ what shows behind a wall as it slides away. The care
           rooms open onto a violet dream; the kiosk opens onto the street it
@@ -541,7 +527,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
               {leader !== null && <ChampionApron mine={leader} />}
               <KioskPhone state={phone.state} lifted={phone.lifted} onAnswer={guard(phone.answer)} />
               <WallTarget
-                hit={FRIDGE_HIT} tag={FRIDGE_TAG} label="OPEN"
+                hit={FRIDGE_HIT} tag={FRIDGE_TAG} label="Open fridge"
                 aria-label="Open the fridge"
                 urgent={needsStock}
                 onClick={guard(() => setFridgeOpen(true))}
@@ -549,7 +535,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
               {/* The only way out, and the only way to get paid. Serve
                   nobody and it's just a door. */}
               <WallTarget
-                hit={DOOR_HIT} tag={DOOR_TAG} label={worked > 0 ? 'CLOSE UP' : 'EXIT ›'}
+                hit={DOOR_HIT} tag={DOOR_TAG} label={worked > 0 ? 'Close' : 'Exit'}
                 aria-label={worked > 0 ? 'Close up for the night' : 'Step back outside'}
                 urgent={shift.lastCall && worked > 0}
                 onClick={guard(() => {
@@ -610,60 +596,12 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           one too. */}
       <PhoneCallHud
         phone={phone}
+        blackout={shift.blackout}
         facing={view.feature === 'fridge'}
         onTurn={() => turnTo('fridge')}
       />
 
-      {/* ══ THE CLOCK ══ how much night is left. The bar under it is the
-          same countdown as the numbers, for when you're not reading. */}
-      <div className="absolute pointer-events-none" style={{
-        top: 'calc(env(safe-area-inset-top, 0px) + 14px)', left: 12, zIndex: 57,
-        display: 'flex', flexDirection: 'column', gap: 4, width: 74,
-      }}>
-        <div className="font-pixel" style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '7px 8px 6px',
-          background: 'rgba(14,10,8,0.82)',
-          border: `2px solid ${shift.lastCall ? 'rgba(228,72,60,0.6)' : 'rgba(245,156,69,0.5)'}`,
-          borderRadius: 9,
-          boxShadow: '0 3px 0 rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(3px)',
-          fontSize: 9, letterSpacing: 1, color: shift.lastCall ? '#F5A79C' : '#FFE7C4',
-        }}>
-          {shift.clock}
-        </div>
-        <div style={{
-          height: 4, background: 'rgba(0,0,0,0.55)',
-          border: '1px solid rgba(245,156,69,0.28)', borderRadius: 3, overflow: 'hidden',
-        }}>
-          <div style={{
-            height: '100%', transformOrigin: '0% 50%',
-            transform: `scaleX(${Math.max(0, 1 - shift.elapsed / SHIFT_MS)})`,
-            background: shift.lastCall ? '#E4483C' : '#F59C45',
-            transition: 'transform 200ms linear',
-          }} />
-        </div>
-        {shift.lastCall && (
-          <div className="font-pixel" style={{
-            fontSize: 5.5, letterSpacing: 1, color: '#F5A79C', textAlign: 'center',
-            textShadow: '0 1px 0 rgba(0,0,0,0.7)',
-          }}>
-            LAST CALL
-          </div>
-        )}
-        {/* What kind of night it is. Under the clock because it's the other
-            half of the same fact: this is when you are and this is what it's
-            doing out there. A clear night says nothing. */}
-        {WEATHER_BY_ID[shift.weather].note && (
-          <div className="font-pixel" style={{
-            fontSize: 5.5, letterSpacing: 1, textAlign: 'center',
-            color: 'rgba(198,214,240,0.75)',
-            textShadow: '0 1px 0 rgba(0,0,0,0.7)',
-          }}>
-            {WEATHER_BY_ID[shift.weather].label}
-          </div>
-        )}
-      </div>
+      <KioskClock clock={shift.clock} elapsed={shift.elapsed} lastCall={shift.lastCall} weather={shift.weather} />
 
       {/* ══ THE LIGHTS ══ the street losing power. Over the walls AND over the
           HUD — a blackout that politely leaves your interface lit is not a
@@ -677,63 +615,10 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           animation: 'kioskLightsOut 700ms ease-out both',
         }} />
       )}
-      {shift.blackout && (
-        <div className="font-pixel absolute left-1/2 pointer-events-none" style={{
-          zIndex: 59,
-          top: 'calc(env(safe-area-inset-top, 0px) + 96px)',
-          transform: 'translateX(-50%)', whiteSpace: 'nowrap',
-          fontSize: 6.5, letterSpacing: 1.6, color: '#F5A79C',
-          background: 'rgba(10,7,6,0.8)', padding: '6px 10px 5px',
-          border: '2px solid rgba(228,72,60,0.45)', borderRadius: 8,
-          animation: 'kioskLineIn 400ms ease-out both',
-        }}>
-          THE STREET HAS GONE DARK
-        </div>
-      )}
-
       {/* ══ TILL ══ tonight's takings, on every wall, all the time. */}
       <KioskCoins paid={shift.paid} till={shift.till} streak={shift.streak} practice={shift.practice} />
 
-      {/* ══ WALL NAME ══ fades in on arrival, out 1.4s later. */}
-      <div className="absolute left-1/2 pointer-events-none"
-        style={{
-          zIndex: 55,
-          top: 'calc(env(safe-area-inset-top, 0px) + 58px)',
-          transform: 'translateX(-50%)',
-          opacity: labelVisible ? 1 : 0,
-          transition: 'opacity 0.3s ease',
-        }}>
-        <span key={view.id} className="font-pixel px-3 py-1"
-          style={{
-            fontSize: 7, color: '#FFE7C4',
-            background: 'rgba(0,0,0,0.45)', borderRadius: 10,
-            backdropFilter: 'blur(4px)',
-            animation: 'kioskLabelIn 0.3s ease both',
-          }}>
-          {view.label}
-        </span>
-      </div>
-
-      {/* ══ DOTS ══ which way you're facing. Sits above the service HUD. */}
-      <div className="absolute left-1/2 flex items-center gap-2 px-3 py-1.5"
-        style={{
-          zIndex: 55,
-          bottom: 'calc(78px + env(safe-area-inset-bottom, 0px))',
-          transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.4)',
-          borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none',
-          opacity: labelVisible ? 1 : 0, transition: 'opacity 0.3s ease',
-        }}>
-        {VIEWS.map((v, i) => (
-          <div key={v.id} style={{
-            width: i === idx ? 18 : 7,
-            height: 7,
-            borderRadius: 4,
-            background: i === idx ? LAMP : 'rgba(255,255,255,0.35)',
-            transition: 'all 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
-            boxShadow: i === idx ? `0 0 6px 2px ${LAMP}66` : 'none',
-          }} />
-        ))}
-      </div>
+      <KioskStations value={view.feature} onChange={turnTo} disabled={closingAt !== null || fridgeOpen} />
 
       {/* ══ SERVICE ══ the wrap in your hands, the bin, and the hand-over.
           Outside the sliding wall so it stays put while you turn around. */}

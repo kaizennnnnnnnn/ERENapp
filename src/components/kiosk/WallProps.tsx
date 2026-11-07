@@ -40,18 +40,18 @@ export function ShiftNote({ note, mine, when }: {
         padding: '9px 8px 8px',
         boxShadow: '2px 3px 0 rgba(0,0,0,0.45)',
       }}>
-        <div className="font-pixel" style={{
-          fontSize: 5, letterSpacing: 1, color: 'rgba(74,58,38,0.7)',
+        <div style={{
+          fontSize: 11, fontWeight: 800, letterSpacing: 0, color: '#67543B',
           display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4,
         }}>
           <span aria-hidden style={{
             width: 5, height: 5, borderRadius: 1, flex: '0 0 auto',
             background: mine ? '#8B5E3C' : '#FF4D7D',
           }} />
-          {when.toUpperCase()}
+          {when}
         </div>
-        <div className="font-pixel" style={{
-          fontSize: 5.5, lineHeight: 1.85, color: '#3A2A16',
+        <div style={{
+          fontSize: 13, fontWeight: 600, lineHeight: 1.4, color: '#3A2A16',
           wordBreak: 'break-word',
         }}>
           {note}

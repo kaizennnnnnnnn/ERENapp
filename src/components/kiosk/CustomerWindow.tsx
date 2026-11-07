@@ -17,6 +17,8 @@
 // which is the whole reason the window is a place rather than a readout.
 
 import BlinkingEren from '@/components/BlinkingEren'
+import { MeadowIcon } from '@/components/meadow'
+import { KIOSK as K, kioskPanel } from './kioskTheme'
 import {
   TOPPINGS, TOPPING_BY_ID, SAUCE_BY_ID, SIDE_BY_ID, SILL_PCT, CUSTOMER_BOX,
   CUSTOMER_SHOW, BUBBLE_BOTTOM, CHEER_MS, LINGER_MS, DUCK_MS, GLASS, GLASS_MASK,
@@ -86,12 +88,12 @@ function Item({ src, label, size = 24, crossed = false, times = 1 }: {
       {/* A double is a NUMBER, not the sprite twice: two tomatoes at ticket
           size read as one tomato and a smudge. */}
       {times > 1 && (
-        <span className="font-pixel" aria-label={`times ${times}`} style={{
+        <span aria-label={`times ${times}`} style={{
           position: 'absolute', right: -5, bottom: -3,
-          fontSize: 6.5, lineHeight: 1, letterSpacing: 0,
-          color: '#3A1B08', background: '#FFD98A',
+          fontSize: 11, fontWeight: 800, lineHeight: 1, letterSpacing: 0,
+          color: K.ground, background: K.leaf,
           padding: '2px 3px 1px', borderRadius: 3,
-          border: '1px solid #8A5A18',
+          border: `1px solid ${K.line}`,
         }}>
           x{times}
         </span>
@@ -122,11 +124,11 @@ function WrapLine({ wrap, index, marked }: { wrap: Wrap; index: number; marked: 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       {marked && (
-        <span className="font-pixel" aria-label={`Wrap ${index + 1}`} style={{
+        <span aria-label={`Wrap ${index + 1}`} style={{
           flex: '0 0 auto',
-          width: 15, height: 15, borderRadius: 4,
+          width: 20, height: 24, borderRadius: 4,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 6, color: '#3A1B08', background: 'rgba(245,156,69,0.85)',
+          fontSize: 12, fontWeight: 800, color: K.leaf, background: K.raised,
         }}>
           {index + 1}
         </span>
@@ -174,7 +176,7 @@ export default function CustomerWindow({
   // The bubble takes its colour from who's talking: amber for anybody
   // ordinary, red for somebody in a mood, gold for the one who always comes
   // after closing.
-  const tone = rude ? '228,72,60' : order.late ? '245,200,73' : '245,156,69'
+  const tone = rude ? K.danger : order.late ? K.coin : K.line
   /** When a happy customer starts leaving. The hop, then a beat of standing
    *  there so the thank-you can actually be read. */
   const duckAt = CHEER_MS + LINGER_MS
@@ -285,21 +287,18 @@ export default function CustomerWindow({
             : 'kioskBubbleIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
       }}>
         <div style={{
+          ...kioskPanel,
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
-          padding: '8px 11px',
+          padding: '11px 14px',
           // Wide enough that a full-length line lands on one row; anything
           // longer wraps, which is fine.
-          maxWidth: 216,
-          background: 'rgba(14,10,8,0.85)',
-          border: `2px solid rgba(${tone},0.6)`,
-          borderRadius: 10,
-          boxShadow: `0 4px 0 rgba(0,0,0,0.5), 0 0 22px rgba(${tone},0.2)`,
-          backdropFilter: 'blur(3px)',
+          width: 260, maxWidth: 'calc(100vw - 48px)',
+          borderColor: tone,
         }}>
           {speech && (
-            <span key={speech.id} className="font-pixel" style={{
-              fontSize: 6, lineHeight: 1.7, letterSpacing: 0.3,
-              color: '#FFE7C4', textAlign: 'center',
+            <span key={speech.id} style={{
+              fontSize: 14, lineHeight: 1.4, letterSpacing: 0,
+              color: K.text, textAlign: 'center',
               animation: 'kioskLineIn 320ms ease-out both',
             }}>
               {speech.text}
@@ -316,9 +315,8 @@ export default function CustomerWindow({
               transition: 'opacity 420ms ease, filter 420ms ease',
             }}>
               {hidden ? (
-                <span className="font-pixel" style={{
-                  fontSize: 15, letterSpacing: 2, color: '#F59C45',
-                  textShadow: '0 0 10px rgba(245,156,69,0.5)',
+                <span style={{
+                  fontSize: 24, fontWeight: 800, letterSpacing: 0, color: K.coin,
                 }}>
                   ?
                 </span>
@@ -346,32 +344,31 @@ export default function CustomerWindow({
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
               <div style={{
                 position: 'relative', flex: '1 1 auto', height: 5,
-                background: 'rgba(0,0,0,0.55)',
-                border: '1px solid rgba(245,156,69,0.3)',
+                background: K.ground,
+                border: `1px solid ${K.line}`,
                 borderRadius: 3, overflow: 'hidden',
               }}>
                 <div style={{
                   position: 'absolute', inset: 0,
                   transformOrigin: '0% 50%',
                   transform: `scaleX(${Math.max(0, Math.min(1, patience))})`,
-                  background: patience < PANIC_AT ? '#E4483C' : '#F59C45',
-                  boxShadow: patience < PANIC_AT ? '0 0 7px rgba(228,72,60,0.7)' : 'none',
+                  background: patience < PANIC_AT ? K.danger : K.leaf,
                   transition: 'transform 120ms linear, background 300ms ease',
                 }} />
               </div>
-              <span className="font-pixel" style={{
-                fontSize: 7, letterSpacing: 0.5, color: '#FFD98A', flex: '0 0 auto',
+              <span style={{
+                fontSize: 13, fontWeight: 800, letterSpacing: 0, color: K.coin, flex: '0 0 auto', display: 'flex', gap: 4, alignItems: 'center',
               }}>
-                +{value}
+                <MeadowIcon name="coin" size={14} />{value}
               </span>
             </div>
           )}
 
           {faded && !paid && !left && (
-            <span className="font-pixel" style={{
-              fontSize: 5.5, letterSpacing: 1, color: 'rgba(255,231,196,0.55)',
+            <span style={{
+              fontSize: 12, letterSpacing: 0, color: K.muted,
             }}>
-              TAP THEM TO ASK AGAIN
+              Order faded
             </span>
           )}
 
@@ -379,10 +376,10 @@ export default function CustomerWindow({
               cost to walking away and no reward for staying that you can see
               from here, which is the point of it. */}
           {chat && !paid && !left && (
-            <span className="font-pixel" style={{
-              fontSize: 5.5, letterSpacing: 1, color: 'rgba(255,231,196,0.55)',
+            <span style={{
+              fontSize: 12, letterSpacing: 0, color: K.muted,
             }}>
-              TAP THEM TO LISTEN
+              A little conversation
             </span>
           )}
         </div>
@@ -391,7 +388,7 @@ export default function CustomerWindow({
           position: 'absolute', left: '50%', bottom: -7, transform: 'translateX(-50%)',
           width: 0, height: 0,
           borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
-          borderTop: `8px solid rgba(${tone},0.6)`,
+          borderTop: `8px solid ${tone}`,
         }} />
       </div>
     </>

@@ -1,304 +1,135 @@
 'use client'
 
-// ═══════════════════════════════════════════════════════════════════════════
-// THE RECEIPT — what the night came to.
-// ──────────────────────────────────────────────────────────────────────────
-// The shift used to end with a number in the corner vanishing as you stepped
-// through the door. This is the send-off: the till roll, printed, with the
-// grade at the bottom and a space to leave a note for whoever works next.
-//
-// It's the only way out of the kiosk, which is deliberate — closing up should
-// be a thing you did, not a thing that happened.
-// ═══════════════════════════════════════════════════════════════════════════
-
-import { useState } from 'react'
-import { IconCoin } from '@/components/PixelIcons'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { PrimaryButton, MeadowIcon, TYPE } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { WEATHER_BY_ID } from './kioskShift'
-import { GRADE_COLOR, GRADE_WORD, NIGHT_GOAL, GOAL_BONUS } from './kioskEconomy'
+import { GRADE_WORD, NIGHT_GOAL, GOAL_BONUS } from './kioskEconomy'
 import type { ShiftReport as Report } from './useKioskShift'
 import KioskSaveNotice from './KioskSaveNotice'
+import { KIOSK as K, KIOSK_CSS, kioskLabel } from './kioskTheme'
 
 interface Props {
   report: Report
-  /** Why nothing was paid, when nothing was. */
   practiceReason: string | null
-  /** False when the coins on this receipt never reached the wallet. */
   banked: boolean
   saving: boolean
   saveError: string | null
   onRetry: () => void
-  /** Notes can only be left on a shift that made it into the book. */
   canNote: boolean
   onSaveNote: (note: string) => Promise<boolean>
   onDone: () => void
 }
+const GRADE_INK = { S: K.coin, A: K.leaf, B: '#B8D3EC', C: '#E9C490', D: K.danger }
 
-const PAPER = '#F1E6D2'
-const INK = '#3B2A1D'
-const FADED = '#8A7460'
-
-/** The torn edge, top and bottom. */
-function Serration({ flip }: { flip?: boolean }) {
-  return (
-    <div aria-hidden style={{
-      height: 8,
-      background: `repeating-conic-gradient(${PAPER} 0% 25%, transparent 0% 50%) 0 0 / 12px 16px`,
-      transform: flip ? 'scaleY(-1)' : undefined,
-    }} />
-  )
-}
-
-function Row({ label, value, dim }: { label: string; value: string; dim?: boolean }) {
-  return (
-    <div className="font-pixel" style={{
-      display: 'flex', alignItems: 'baseline', gap: 6,
-      fontSize: 6.5, letterSpacing: 0.5, color: dim ? FADED : INK,
-    }}>
-      <span>{label}</span>
-      {/* Dot leaders, the way a till roll runs the price out to the edge. */}
-      <span aria-hidden style={{
-        flex: '1 1 auto', height: 1, marginBottom: 2,
-        borderBottom: `1px dotted ${dim ? FADED : 'rgba(59,42,29,0.4)'}`,
-      }} />
-      <span>{value}</span>
-    </div>
-  )
+function Row({ label, value }: { label: string; value: number }) {
+  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 14 }}>
+    <span style={{ color: K.muted }}>{label}</span><span style={{ ...TYPE.number, color: K.text }}>{value}</span>
+  </div>
 }
 
 export default function ShiftReport({ report, practiceReason, banked, saving, saveError, onRetry, canNote, onSaveNote, onDone }: Props) {
   const { takings: t, grade, coins, weather, early, unlock, nightTotal, goalMet } = report
-  const sky = WEATHER_BY_ID[weather]
-  /** Money that actually moved: earned AND received. */
   const paidOut = report.paid && banked
-  const [note, setNote] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [pinning, setPinning] = useState(false)
-  const [pinError, setPinError] = useState(false)
-
-  // No shutter sound here any more — it belongs to the shutter, which now
-  // actually comes down before this arrives. See Shutter.tsx.
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto px-5 py-5"
-      style={{ background: 'rgba(4,3,4,0.86)', backdropFilter: 'blur(3px)' }}>
-      <div style={{
-        width: '100%', maxWidth: 300, marginTop: 'auto', marginBottom: 'auto',
-        filter: 'drop-shadow(4px 6px 0 rgba(0,0,0,0.55))',
-        animation: 'kioskReceiptIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
-      }}>
-        <Serration />
-        <div style={{ background: PAPER, padding: '14px 16px 16px' }}>
-          {/* ── header ── */}
-          <div className="font-pixel" style={{
-            textAlign: 'center', fontSize: 8, letterSpacing: 2, color: INK,
-          }}>
-            SHUTTERS DOWN
-          </div>
-          <div className="font-pixel" style={{
-            textAlign: 'center', fontSize: 5.5, letterSpacing: 1, color: FADED, marginTop: 5,
-          }}>
-            {early ? 'CLOSED EARLY' : 'WORKED THE WHOLE NIGHT'}
-            {sky.note ? ` · ${sky.note.toUpperCase()}` : ''}
-          </div>
-
-          <div style={{ height: 1, background: 'rgba(59,42,29,0.25)', margin: '12px 0 10px' }} />
-
-          {/* ── the night ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <Row label="SERVED" value={`${t.served}`} />
-            {t.wrong > 0 && <Row label="HANDED BACK" value={`${t.wrong}`} />}
-            {t.walked > 0 && <Row label="WALKED OFF" value={`${t.walked}`} />}
-            {t.bestStreak > 1 && <Row label="BEST RUN" value={`${t.bestStreak}`} />}
-            {/* Only printed if it happened. A line that says nought every
-                night is a line nobody reads on the night it says one. */}
-            {t.inDark > 0 && <Row label="IN THE DARK" value={`${t.inDark}`} />}
-            {t.missedCalls > 0 && <Row label="MISSED CALLS" value={`${t.missedCalls}`} dim />}
-          </div>
-
-          <div style={{ height: 1, background: 'rgba(59,42,29,0.25)', margin: '10px 0' }} />
-
-          {/* ── the money ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <Row label="BASE" value={`${t.base}`} />
-            <Row label="TIPS" value={`${t.tips}`} dim={t.tips === 0} />
-            {early && t.tips === 0 && (
-              <div className="font-pixel" style={{ fontSize: 5.5, lineHeight: 1.7, color: FADED }}>
-                you left before the street emptied — the tips stayed in the till
-              </div>
-            )}
-          </div>
-
-          <div style={{
-            marginTop: 12, padding: '9px 10px',
-            background: coins > 0 ? 'rgba(59,42,29,0.08)' : 'rgba(59,42,29,0.05)',
-            border: `2px solid ${coins > 0 ? 'rgba(59,42,29,0.35)' : 'rgba(59,42,29,0.18)'}`,
-            borderRadius: 4,
-          }}>
-            <div className="font-pixel" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              fontSize: 8, letterSpacing: 1, color: INK,
-            }}>
-              <span>{banked ? 'TOOK HOME' : 'AWAITING SAVE'}</span>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                // Struck through rather than hidden: you earned this, it just
-                // didn't arrive, and the difference is the whole message.
-                textDecoration: banked ? undefined : 'line-through',
-                opacity: banked ? 1 : 0.55,
-              }}>
-                <IconCoin size={12} />{coins}
-              </span>
-            </div>
-            {!banked && (
-              <div className="font-pixel" style={{
-                fontSize: 5.5, lineHeight: 1.7, color: FADED, marginTop: 6,
-              }}>
-                your result is kept until the save is confirmed
-              </div>
-            )}
-            {practiceReason && (
-              <div className="font-pixel" style={{
-                fontSize: 5.5, lineHeight: 1.7, color: FADED, marginTop: 6,
-              }}>
-                {practiceReason}
-              </div>
-            )}
-          </div>
-
-          {!banked && <div style={{ marginTop: 12 }}><KioskSaveNotice inline busy={saving} error={saveError} onRetry={onRetry} /></div>}
-
-          {/* ── the two of you ── what the household did tonight, across both
-              shifts. Printed whether or not the line was crossed: half the
-              point of a shared number is seeing how far off it is. */}
-          <div style={{
-            marginTop: 10, padding: '8px 10px',
-            border: `1px ${goalMet ? 'solid' : 'dashed'} rgba(59,42,29,${goalMet ? '0.4' : '0.22'})`,
-            borderRadius: 4,
-          }}>
-            <div className="font-pixel" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              fontSize: 6, letterSpacing: 1, color: goalMet ? INK : FADED,
-            }}>
-              <span>BETWEEN YOU TONIGHT</span>
-              <span>{nightTotal} / {NIGHT_GOAL}</span>
-            </div>
-            {/* The pair of you crossing the line is true on a practice night
-                too — the wraps were still served. The BONUS is not, and it
-                used to print "+40" above a receipt that took home nought. It
-                is also not true on a night the wallet refused, which is why
-                it follows the money rather than the report. */}
-            {goalMet && (
-              <div className="font-pixel" style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                fontSize: 6, letterSpacing: 0.5, color: paidOut ? INK : FADED, marginTop: 6,
-              }}>
-                <span>THE PAIR OF YOU MADE IT</span>
-                {paidOut && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <IconCoin size={10} />+{GOAL_BONUS}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── the grade ── */}
-          <div style={{
-            marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          }}>
-            <span className="font-pixel" style={{
-              fontSize: 26, lineHeight: 1, color: GRADE_COLOR[grade],
-              textShadow: '1px 1px 0 rgba(59,42,29,0.22)',
-              animation: 'kioskGradeIn 620ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both',
-            }}>
-              {grade}
-            </span>
-            <span className="font-pixel" style={{ fontSize: 6.5, letterSpacing: 0.5, color: INK }}>
-              {GRADE_WORD[grade]}
-            </span>
-          </div>
-
-          {banked && unlock && (
-            <div className="font-pixel" style={{
-              marginTop: 12, padding: '8px 9px',
-              fontSize: 6, lineHeight: 1.8, letterSpacing: 0.5,
-              color: INK, background: 'rgba(212,160,60,0.22)',
-              border: '2px dashed rgba(59,42,29,0.4)', borderRadius: 4,
-              animation: 'kioskGradeIn 520ms cubic-bezier(0.16, 1, 0.3, 1) 620ms both',
-            }}>
-              {unlock.kind === 'menu'
-                ? `NEW ON THE MENU — ${unlock.label}`
-                : `THAT MAKES ${unlock.label}`}
-              <div style={{ color: FADED, marginTop: 5 }}>{unlock.blurb}</div>
-            </div>
-          )}
-
-          {/* ── the note ── */}
-          {canNote && (
-            <div style={{ marginTop: 14 }}>
-              <div className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1, color: FADED }}>
-                LEAVE A NOTE AT THE TILL
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                <input
-                  value={note}
-                  onChange={e => { setNote(e.target.value); setSaved(false); setPinError(false) }}
-                  maxLength={60}
-                  placeholder="ran out of onion. sorry."
-                  aria-label="A note for whoever works next"
-                  className="font-pixel"
-                  style={{
-                    flex: '1 1 auto', minWidth: 0,
-                    fontSize: 6, letterSpacing: 0.3, color: INK,
-                    background: 'transparent', border: 0,
-                    borderBottom: `1px solid rgba(59,42,29,0.4)`,
-                    padding: '4px 2px', outline: 'none',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!note.trim() || pinning) return
-                    setPinning(true); setPinError(false)
-                    try { const ok = await onSaveNote(note.trim()); setSaved(ok); setPinError(!ok); if (ok) playSound('ui_select') }
-                    catch { setPinError(true) }
-                    finally { setPinning(false) }
-                  }}
-                  disabled={!note.trim() || saved || pinning}
-                  className="font-pixel active:translate-y-[1px] transition-transform"
-                  style={{
-                    flex: '0 0 auto',
-                    fontSize: 6, letterSpacing: 1,
-                    color: saved ? FADED : PAPER,
-                    background: saved ? 'transparent' : INK,
-                    border: `2px solid ${INK}`, borderRadius: 4,
-                    padding: '5px 7px 4px',
-                  }}>
-                  {saved ? 'PINNED' : pinning ? 'PINNING' : 'PIN'}
-                </button>
-              </div>
-              {pinError && <div role="status" style={{ color: INK, fontSize: 13, marginTop: 6 }}>Could not pin the note. Try again.</div>}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => { playSound('ui_back'); onDone() }}
-            className="font-pixel active:translate-y-[2px] transition-transform"
-            style={{
-              marginTop: 16, width: '100%',
-              fontSize: 7.5, letterSpacing: 1.5, color: '#3A1B08',
-              background: '#F59C45',
-              padding: '11px 12px 10px',
-              border: '3px solid #5A2E12', borderRadius: 4,
-              boxShadow: '0 3px 0 #DC772A',
-            }}>
-            OUT INTO THE STREET
+  const [note, setNote] = useState(''), [saved, setSaved] = useState(false)
+  const [pinning, setPinning] = useState(false), [pinError, setPinError] = useState(false)
+  const dialog = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null
+    dialog.current?.focus()
+    return () => before?.focus({ preventScroll: true })
+  }, [])
+  function onKey(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') { event.stopPropagation(); onDone(); return }
+    if (event.key !== 'Tab') return
+    const targets = dialog.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])')
+    if (!targets?.length) return
+    const first = targets[0], last = targets[targets.length - 1]
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { event.preventDefault(); last.focus() }
+    else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { event.preventDefault(); first.focus() }
+  }
+  async function pinNote() {
+    if (!note.trim() || pinning || saved) return
+    setPinning(true); setPinError(false)
+    try { const ok = await onSaveNote(note.trim()); setSaved(ok); setPinError(!ok); if (ok) playSound('ui_select') }
+    catch { setPinError(true) }
+    finally { setPinning(false) }
+  }
+  return <div className="meadow-root kiosk-theme fixed inset-0 z-[80] overflow-y-auto" style={{ background: K.scrim,
+    display: 'flex', padding: 'max(16px, env(safe-area-inset-top, 0px)) 16px max(20px, env(safe-area-inset-bottom, 0px))' }}>
+    <style dangerouslySetInnerHTML={{ __html: KIOSK_CSS }} />
+    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="kiosk-shift-title" tabIndex={-1} onKeyDown={onKey}
+      style={{ width: '100%', maxWidth: 350, margin: 'auto', padding: 22, boxSizing: 'border-box', outline: 'none',
+        borderRadius: 22, background: K.surface, border: `1px solid ${K.line}`, boxShadow: `0 5px 0 ${K.lip}`,
+        animation: 'kioskReceiptIn 380ms cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+      <header style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+        <div aria-label={`Grade ${grade}`} style={{ width: 52, height: 52, flexShrink: 0, display: 'grid', placeItems: 'center',
+          borderRadius: 14, background: K.raised, color: GRADE_INK[grade], fontSize: 30, fontWeight: 800 }}>{grade}</div>
+        <div style={{ minWidth: 0 }}><h1 id="kiosk-shift-title" style={{ margin: 0, fontSize: 23, fontWeight: 800, lineHeight: 1.2 }}>Shift complete</h1>
+          <p style={{ margin: '5px 0 0', color: K.muted, fontSize: 14, lineHeight: 1.35 }}>{GRADE_WORD[grade]}</p></div>
+      </header>
+      <div style={{ ...kioskLabel, marginTop: 16, display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+        <MeadowIcon name={early ? 'clock' : 'moon'} size={15} mono color={K.muted} />
+        <span>{early ? 'Closed early' : 'Full shift'}</span>
+        {WEATHER_BY_ID[weather].note && <><span aria-hidden>/</span><span>{WEATHER_BY_ID[weather].label.toLowerCase()}</span></>}
+      </div>
+      <section style={{ marginTop: 20, padding: '18px 0', borderTop: `1px solid ${K.line}`, borderBottom: `1px solid ${K.line}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ color: K.muted, fontSize: 14 }}>{banked ? 'Taken home' : 'Awaiting confirmation'}</span>
+          <div aria-live="polite" aria-label={banked ? `${coins} coins received` : 'Earnings awaiting confirmation'}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, color: banked ? K.coin : K.muted, fontSize: 34, lineHeight: 1, ...TYPE.number }}>
+            <MeadowIcon name="coin" size={25} />{banked ? coins : '...'}</div>
+        </div>
+        {practiceReason && <p style={{ fontSize: 13, lineHeight: 1.45, color: K.muted, margin: '12px 0 0' }}>{practiceReason}</p>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 17 }}>
+          <Row label="Base" value={t.base} /><Row label="Tips" value={t.tips} />
+        </div>
+        {early && t.tips === 0 && <p style={{ fontSize: 13, lineHeight: 1.45, color: K.muted, margin: '10px 0 0' }}>Tips stay in the till when you close early.</p>}
+      </section>
+      {!banked && <div style={{ marginTop: 16 }}><KioskSaveNotice inline busy={saving} error={saveError} onRetry={onRetry} /></div>}
+      <section aria-label="Shift results" style={{ display: 'grid', gap: 9, marginTop: 17 }}>
+        <Row label="Orders served" value={t.served} /><Row label="Best run" value={t.bestStreak} />
+        {t.wrong > 0 && <Row label="Handed back" value={t.wrong} />}
+        {t.walked > 0 && <Row label="Walked away" value={t.walked} />}
+        {t.inDark > 0 && <Row label="Served in the dark" value={t.inDark} />}
+        {t.missedCalls > 0 && <Row label="Missed calls" value={t.missedCalls} />}
+      </section>
+      <section aria-label="Shared nightly progress" style={{ borderTop: `1px solid ${K.line}`, marginTop: 17, paddingTop: 15 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 14 }}>
+          <span style={{ color: K.muted }}>Together tonight</span><strong style={TYPE.number}>{nightTotal}<span style={{ color: K.muted, fontWeight: 500 }}> / {NIGHT_GOAL}</span></strong>
+        </div>
+        <div role="progressbar" aria-label="Shared nightly orders" aria-valuemin={0} aria-valuemax={NIGHT_GOAL} aria-valuenow={Math.min(NIGHT_GOAL, nightTotal)}
+          style={{ height: 6, borderRadius: 4, background: K.raised, marginTop: 10, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(1, nightTotal / NIGHT_GOAL) * 100}%`, background: K.leaf, borderRadius: 4 }} />
+        </div>
+        {goalMet && <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 9, color: K.leaf, fontSize: 13 }}>
+          <span>Nightly goal complete</span>{paidOut && <strong>+{GOAL_BONUS} coins</strong>}</div>}
+      </section>
+      {banked && unlock && <div style={{ marginTop: 15, color: K.leaf, fontSize: 14, lineHeight: 1.4 }}>
+        <strong>{unlock.kind === 'menu' ? 'New on the menu' : 'Milestone reached'}: {unlock.label.toLowerCase()}</strong>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: K.muted }}>{unlock.blurb}</p>
+      </div>}
+      {canNote && <form onSubmit={event => { event.preventDefault(); void pinNote() }} style={{ marginTop: 18 }}>
+        <label htmlFor="kiosk-till-note" style={{ ...kioskLabel, display: 'block', marginBottom: 8 }}>Leave a note at the till</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input id="kiosk-till-note" className="kiosk-note-input" value={note} onChange={e => { setNote(e.target.value); setSaved(false); setPinError(false) }}
+            maxLength={60} placeholder="Anything for the next shift?" aria-label="A note for whoever works next"
+            style={{ width: '100%', minWidth: 0, height: 44, boxSizing: 'border-box', padding: '0 12px', borderRadius: 8,
+              background: K.ground, border: `1px solid ${K.line}`, color: K.text, fontSize: 14, fontWeight: 500 }} />
+          <button type="submit" className="m-focus kiosk-icon-tool" title={saved ? 'Note pinned' : 'Pin note'} aria-label={saved ? 'Note pinned' : 'Pin note'}
+            disabled={!note.trim() || saved || pinning} aria-busy={pinning || undefined} style={{ position: 'relative', display: 'grid', placeItems: 'center',
+              width: 44, height: 44, flexShrink: 0, border: 0, borderRadius: 8, background: saved ? K.raised : K.leafFace,
+              color: K.text, opacity: !note.trim() || pinning ? 0.5 : 1 }}>
+            <MeadowIcon name={saved ? 'check' : 'pin'} size={19} mono color={saved ? K.leaf : '#FFFFFF'} />
+            <span className="kiosk-action-tooltip">{saved ? 'Note pinned' : 'Pin note'}</span>
           </button>
         </div>
-        <Serration flip />
-      </div>
+        <div role="status" style={{ minHeight: saved || pinError ? 20 : 0, marginTop: saved || pinError ? 6 : 0, fontSize: 13, color: pinError ? K.danger : K.leaf }}>
+          {pinError ? 'Could not pin the note. Try again.' : saved ? 'Pinned for the next shift.' : null}
+        </div>
+      </form>}
+      <PrimaryButton onClick={() => { playSound('ui_back'); onDone() }} icon={<MeadowIcon name="chevronLeft" size={18} mono color="#FFFFFF" />}
+        style={{ marginTop: 20 }} size="md" full>Back to the street</PrimaryButton>
     </div>
-  )
+  </div>
 }
