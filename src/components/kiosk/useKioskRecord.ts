@@ -32,6 +32,8 @@ import { startKioskShift, prepareKioskClose, pendingKioskSaves, saveKioskClose, 
   type KioskSession, type KioskSettlement } from '@/lib/kioskSaves'
 import type { PendingSavedRequest } from '@/lib/savedRpc'
 import { notifyRewardIndicators } from '@/lib/rewardIndicators'
+import { receiveRewardNews } from '@/lib/rewardNews'
+import { kioskWeek, type KioskWeek } from '@/lib/kioskWeek'
 import { readKioskNight, validKioskNight, nightRemaining, claimKioskBonus, pendingKioskBonuses, type KioskNight, type KioskBonus } from '@/lib/kioskNights'
 
 export interface ShiftRow {
@@ -75,6 +77,7 @@ export interface WeekTally {
 }
 
 export interface KioskRecord {
+  stamps: KioskWeek | null
   night: KioskNight | null
   bonusBusy: boolean
   bonusError: string | null
@@ -161,6 +164,8 @@ export function useKioskRecord(): KioskRecord {
 
   const [loaded, setLoaded] = useState(false)
   const [night, setNight] = useState<KioskNight | null>(null)
+  const stamps = useMemo(() => night && user?.id && night.user_id === user.id && night.household_id === hh
+    ? kioskWeek(night.rows, user.id, night.night_date) : null, [night, user?.id, hh])
   const [bonusBusy, setBonusBusy] = useState(false), [bonusError, setBonusError] = useState<string | null>(null)
   const [bonusReceived, setBonusReceived] = useState(0), [bonusPending, setBonusPending] = useState(false)
   const bonusLock = useRef<symbol | null>(null)
@@ -274,6 +279,7 @@ export function useKioskRecord(): KioskRecord {
       setSettlement(saved)
       if (saved.paid) { myDate.current = saved.shift_date; mySession.current = saved.version === 2 ? saved.session_id : null }
       window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: actor, patch: { coins: saved.coins } } }))
+      if (saved.paid && saved.awarded > 0) receiveRewardNews(actor, 'kiosk', `shift:${saved.session_id}`)
       notifyRewardIndicators()
       void refetch(); void load()
       return true
@@ -358,6 +364,7 @@ export function useKioskRecord(): KioskRecord {
       const saved = result as KioskBonus
       window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: actor, patch: { coins: saved.coins } } }))
       setBonusReceived(saved.awarded); setNight(previous => previous ? { ...previous, bonus_due: Math.max(0, previous.bonus_due - saved.awarded) } : previous)
+      if (saved.awarded > 0) receiveRewardNews(actor, 'kiosk', `bonus:${saved.request_id}`)
       notifyRewardIndicators(); void refetch(); void load()
     } catch { if (active()) setBonusError('Could not confirm your nightly bonus. Retry to recover it.') }
     finally {
@@ -381,7 +388,7 @@ export function useKioskRecord(): KioskRecord {
   const menu = useMemo(() => menuFor(lifetimeWraps), [lifetimeWraps])
 
   return {
-    night, bonusBusy, bonusError, bonusReceived, bonusPending, claimBonus,
+    night, stamps, bonusBusy, bonusError, bonusReceived, bonusPending, claimBonus,
     loaded,
     workedTonight,
     lastShift,

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth, PROFILE_UPDATED_EVENT } from '@/hooks/useAuth'
+import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from './TaskContext'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
@@ -13,9 +14,11 @@ import { PLAYABLE_MINIGAME_IDS } from '@/lib/minigames'
 import type { GameType } from '@/types'
 import { useCare } from './CareContext'
 import { readRewardNews, markRewardNewsSeen, rewardNewsKey, REWARD_NEWS_CHANGED, type RewardNewsTarget } from '@/lib/rewardNews'
+import { readKioskNight, validKioskNight, nightRemaining, kioskNotice, pendingKioskBonuses, type KioskNight } from '@/lib/kioskNights'
+import { pendingKioskSaves } from '@/lib/kioskSaves'
 
 export interface RewardAlerts {
-  places: Partial<Record<'/gacha' | '/bakery' | '/jelly', string>>
+  places: Partial<Record<'/gacha' | '/bakery' | '/jelly' | '/shawarma', string>>
   tabs: Partial<Record<'home' | 'play' | 'me', string>>
   newGames: GameType[]
   news: Partial<Record<RewardNewsTarget, boolean>>
@@ -26,14 +29,18 @@ const Context = createContext<RewardAlerts>(EMPTY)
 
 export function RewardIndicatorsProvider({ children }: { children: React.ReactNode }) {
   const { user, profile } = useAuth()
+  const home = profile?.household_id ?? null
+  const { stats, loading: statsLoading } = useErenStats()
   const { pendingRewards, level, loading } = useTasks()
   const { activeScene } = useCare()
   const path = usePathname()
   const [now, setNow] = useState(0)
   const [rows, setRows] = useState<{ owner: string; gacha: Record<string, unknown> | null; supers: number; weekly: number } | null>(null)
-  const [local, setLocal] = useState<{ owner: string; newGames: GameType[]; pending: number; news: RewardAlerts['news'] } | null>(null)
+  const [kiosk, setKiosk] = useState<KioskNight | null>(null)
+  const [local, setLocal] = useState<{ owner: string; home: string | null; newGames: GameType[]; pending: number; kioskSaves: number; kioskBonuses: number; news: RewardAlerts['news'] } | null>(null)
   const seen = useRef<{ owner: string; ids: Set<string> } | null>(null)
   const current = useRef(user?.id); current.current = user?.id
+  const currentHome = useRef(home); currentHome.current = home
   const version = useRef(0)
   const markNewsSeen = useCallback((target: RewardNewsTarget) => {
     if (user?.id && current.current === user.id) markRewardNewsSeen(user.id, target)
@@ -42,9 +49,14 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
     const actor = user?.id
     if (!actor || current.current !== actor) return
     const read = ++version.current, db = createClient()
-    const response = await writeWithRetry(signal => db.rpc('read_reward_indicators', { p_expected_user: actor }).abortSignal(signal),
-      2, error => !['PGRST202', '42883'].includes(error.code ?? ''))
-    if (current.current !== actor || read !== version.current) return
+    const [response, nightStatus] = await Promise.all([
+      writeWithRetry(signal => db.rpc('read_reward_indicators', { p_expected_user: actor }).abortSignal(signal),
+        2, error => !['PGRST202', '42883'].includes(error.code ?? '')),
+      home ? readKioskNight(db, actor, home) : Promise.resolve(null),
+    ])
+    if (current.current !== actor || currentHome.current !== home || read !== version.current) return
+    setKiosk(home && nightStatus && !nightStatus.error && validKioskNight(nightStatus.data as KioskNight, actor, home)
+      ? { ...(nightStatus.data as KioskNight), receivedAt: performance.now() } : null)
     if (!response.error) {
       const data = response.data
       const valid = data?.ok && data.user_id === actor && data.gacha && typeof data.gacha === 'object'
@@ -65,11 +77,17 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
       supers: !jelly.error && Number.isSafeInteger(jelly.data?.supers) ? Math.max(0, jelly.data!.supers) : 0,
       weekly: weekly.error ? 0 : weekly.data?.length ?? 0 })
     setNow(Date.now())
-  }, [user?.id])
+  }, [user?.id, home])
+
+  useEffect(() => {
+    if (!kiosk || kiosk.user_id !== user?.id || kiosk.household_id !== home) return
+    const timer = setTimeout(() => { void refresh() }, nightRemaining(kiosk) + 100)
+    return () => clearTimeout(timer)
+  }, [kiosk, user?.id, home, refresh])
 
   useEffect(() => {
     const actor = user?.id
-    if (!actor) { setRows(null); setLocal(null); return }
+    if (!actor) { setRows(null); setLocal(null); setKiosk(null); return }
     let dead = false, timer: ReturnType<typeof setTimeout> | undefined
     const syncLocal = () => {
       if (dead || current.current !== actor) return
@@ -82,8 +100,10 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
       if (path === '/profile' && !loading) markRewardNewsSeen(actor, 'profile', false)
       if (path === '/games') markRewardNewsSeen(actor, 'play', false)
       if (activeScene === 'feed') markRewardNewsSeen(actor, 'kitchen', false)
+      if (path === '/shawarma') markRewardNewsSeen(actor, 'kiosk', false)
       const news = readRewardNews(actor)
-      setLocal({ owner: actor, newGames: unseenGames(seen.current.ids), pending: profile?.household_id ? pendingGameSaves(actor, profile.household_id).length : 0,
+      setLocal({ owner: actor, home, newGames: unseenGames(seen.current.ids), pending: home ? pendingGameSaves(actor, home).length : 0,
+        kioskSaves: home ? pendingKioskSaves(actor, home).length : 0, kioskBonuses: home ? pendingKioskBonuses(actor, home).length : 0,
         news: Object.fromEntries(Object.entries(news).map(([target, group]) => [target, group.unread.length > 0])) })
     }
     const sync = () => { if (!dead) { syncLocal(); void refresh() } }
@@ -106,7 +126,7 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
   }, [user?.id, profile?.household_id, path, activeScene, loading, refresh])
 
   const known = rows?.owner === user?.id ? rows : null
-  const localKnown = local?.owner === user?.id ? local : null
+  const localKnown = local && local.owner === user?.id && local.home === home ? local : null
   const places: RewardAlerts['places'] = {}
   if (known?.gacha) {
     if (untilFree(known.gacha.last_free_donut, now) === 0) places['/bakery'] = 'A free donut is ready'
@@ -115,6 +135,10 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
     if (free || tickets) places['/gacha'] = free ? 'A free food pull is ready' : 'Gacha tickets are ready to use'
   }
   if (known && known.supers > 0) places['/jelly'] = `${known.supers} Super ${known.supers === 1 ? 'Jelly is' : 'Jellies are'} ready`
+  const kioskNight = kiosk?.user_id === user?.id && kiosk?.household_id === home ? kiosk : null
+  const energy = !statsLoading && stats?.household_id === home && typeof stats.energy === 'number' ? stats.energy : null
+  const kioskAlert = kioskNotice(kioskNight, energy, localKnown?.kioskSaves ?? 0, localKnown?.kioskBonuses ?? 0, Boolean(localKnown?.news.kiosk))
+  if (kioskAlert) places['/shawarma'] = kioskAlert
   const tabs: RewardAlerts['tabs'] = {}
   if (Object.keys(places).length || pendingRewards > 0 || localKnown?.news.quests || localKnown?.news.kitchen || localKnown?.news.menu) tabs.home = 'A free or newly received reward is waiting'
   if (localKnown?.newGames.length || known?.weekly || localKnown?.pending || localKnown?.news.play) tabs.play = localKnown?.newGames.length ? 'New games are waiting' : 'A game reward is waiting'

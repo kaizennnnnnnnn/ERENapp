@@ -17,6 +17,8 @@ const SpecialBoard = load('src/components/kiosk/KioskSpecialBoard.tsx').default
 const { nightlySpecialFor } = load('src/components/kiosk/kioskSpecials.ts')
 const { menuFor } = load('src/components/kiosk/kioskShift.ts')
 const NightPanel = load('src/components/kiosk/KioskNightPanel.tsx').default
+const Stamps = load('src/components/kiosk/KioskWeeklyStamps.tsx').default
+const { kioskWeek } = load('src/lib/kioskWeek.ts')
 const { KIOSK: K } = load('src/components/kiosk/kioskTheme.ts')
 const html = (Component, props) => renderToStaticMarkup(React.createElement(Component, props))
 const special = nightlySpecialFor('2026-11-08', menuFor(0))
@@ -36,6 +38,14 @@ assert.match(html(NightPanel,{record:{...nightRecord,bonusBusy:true},practiceRea
 assert.match(html(NightPanel,{record:{...nightRecord,bonusError:'Connection lost'},practiceReason:null}),/Retry nightly bonus/)
 assert.match(html(NightPanel,{record:{...nightRecord,night:{...nightRecord.night,bonus_due:0}},practiceReason:null}),/Paid shift complete/)
 assert.match(html(NightPanel,{record:{...nightRecord,bonusReceived:40,night:{...nightRecord.night,bonus_due:0}},practiceReason:null}),/Nightly bonus received/)
+const stampWeek=kioskWeek([{version:2,user_id:'me',served:3,shift_date:'2026-11-02'}],'me','2026-11-03')
+const stampMarkup=html(Stamps,{week:stampWeek})
+assert.match(stampMarkup,/Weekly kiosk stamps/);assert.match(stampMarkup,/You, Monday: stamped/)
+assert.match(stampMarkup,/You, Wednesday: upcoming/);assert.equal((stampMarkup.match(/role="img"/g)||[]).length,14)
+assert.match(html(Stamps,{week:kioskWeek([],'me','2026-11-03')}),/0\/7/)
+const emptyBook=html(Front,{record:{...nightRecord,stamps:kioskWeek([],'me','2026-11-03'),week:{mine:0,theirs:0},tonight:0},mine:true,practiceReason:null,disabled:false,onEnter(){}})
+assert.match(emptyBook,/Your kiosk week/);assert.match(emptyBook,/Shift book/)
+assert.match(emptyBook,/name="kiosk-front-panel"/);assert.match(specialMarkup,/name="kiosk-front-panel"/)
 const report = {
   takings: { served: 3, wrong: 1, walked: 2, missedCalls: 1, bestStreak: 3, base: 30, tips: 12, inDark: 1 },
   grade: 'B', coins: 42, paid: true, weather: 'rain', early: false, nightTotal: 3, goalMet: false, unlock: null,

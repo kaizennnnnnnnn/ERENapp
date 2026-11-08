@@ -26,6 +26,7 @@ export const KIOSK_CSS = `
 .kiosk-theme button:focus-visible, .kiosk-theme input:focus-visible { outline: 3px solid ${KIOSK.leaf}; outline-offset: 3px; }
 .kiosk-theme button[disabled] { cursor: default; }
 .kiosk-special-board[open] .kiosk-special-chevron { transform: rotate(90deg); }
+.kiosk-shift-book[open] .kiosk-book-chevron { transform: rotate(90deg); }
 .kiosk-theme summary:focus-visible { outline: 3px solid ${KIOSK.leaf}; outline-offset: 3px; border-radius: 6px; }
 .kiosk-theme summary::-webkit-details-marker { display: none; }
 .kiosk-stations [role="radio"] { color: ${KIOSK.muted} !important; background: transparent !important; box-shadow: none !important; }

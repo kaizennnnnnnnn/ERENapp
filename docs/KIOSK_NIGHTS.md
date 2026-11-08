@@ -3,7 +3,7 @@
 Run the full `supabase/migration_kiosk_nights.sql` manually before publishing this
 client. It expects the existing economy/kiosk migrations and `households.tz` from
 the live phase-3 schema. It does not reset wallets, food, skins, notes or history.
-There is no historical backpay. Weekly stamps and a kiosk dock dot are later work.
+There is no historical backpay.
 
 ## Clock And Paid Shifts
 
@@ -36,6 +36,25 @@ Earned entitlements remain separate from shift history, so deleting another
 player's account does not erase the remaining player's already-earned bonus.
 Claims still require membership in the household that earned the reward.
 
+## Weekly Stamps And Notices
+
+The shift book shows Monday through Sunday in the confirmed household night
+calendar. One saved paid night with at least one served order earns one stamp per
+player. Duplicate rows do not add stamps; practice, empty shifts and legacy
+calendar records do not count. Stamps show progress only, with no additional
+payout or missed-day penalty. The seven-night wrap tally remains separately
+labelled as a rolling total. The recipe and book are an exclusive disclosure
+group, and the book scrolls internally on small screens.
+
+The home Shawarma button uses the shared notification dot. Confirmation-needed
+shift saves take priority, then bonus recovery, earned bonuses, unseen confirmed
+rewards and finally an available paid shift. A ready-shift dot needs confirmed
+household status and loaded energy of at least 30. Missing/failed/mismatched reads
+never invent availability; reset/foreground/minute refreshes keep it current.
+Pending work is account-and-household scoped. New local receipts use the existing
+unread-reward journal and clear when the kiosk opens; receipt replay stays seen.
+This part needs no extra SQL beyond `migration_kiosk_nights.sql`.
+
 ## Compatibility And Special Orders
 
 Old paid records stay in `kiosk_shifts`; new ones use `kiosk_night_shifts`, avoiding
@@ -64,6 +83,8 @@ node scripts/check_kiosk_sql.cjs
 node scripts/check_kiosk_client.cjs
 node scripts/check_kiosk_specials.cjs
 node scripts/check_kiosk_ui.cjs
+node scripts/check_kiosk_week.cjs
+node scripts/check_reward_indicators_client.cjs
 npx tsc --noEmit
 npm run build
 ```

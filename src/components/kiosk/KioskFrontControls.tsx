@@ -7,6 +7,7 @@ import { KIOSK as K, kioskPanel, kioskLabel } from './kioskTheme'
 import KioskSpecialBoard from './KioskSpecialBoard'
 import type { NightlySpecial } from './kioskSpecials'
 import KioskNightPanel from './KioskNightPanel'
+import KioskWeeklyStamps from './KioskWeeklyStamps'
 
 export default function KioskFrontControls({ record, mine, practiceReason, disabled, onEnter, special }: {
   record: KioskRecord; mine: boolean; practiceReason: string | null; disabled: boolean; onEnter: () => void; special?: NightlySpecial | null
@@ -17,16 +18,21 @@ export default function KioskFrontControls({ record, mine, practiceReason, disab
     zIndex: 25, display: 'grid', gap: 12, maxWidth: 380, margin: '0 auto' }}>
     {special && !collectingBonus && <KioskSpecialBoard special={special} />}
     {record.night && <KioskNightPanel record={record} practiceReason={practiceReason} />}
-    {last && <details style={{ ...kioskPanel, padding: '0 14px' }}>
+    {(last || record.stamps) && <details name="kiosk-front-panel" className="kiosk-shift-book" style={{ ...kioskPanel, padding: '0 14px' }}>
       <summary className="m-focus" style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 54, cursor: 'pointer', listStyle: 'none' }}>
         <MeadowIcon name="scroll" size={22} mono color={K.leaf} />
-        <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700 }}>Last shift <span style={{ color: K.muted, fontWeight: 500 }}>/ {last.served} served</span></div>
-        <strong style={{ ...TYPE.number, fontSize: 20, color: K.leaf }}>{last.grade}</strong>
-        <span style={{ display: 'flex', transform: 'rotate(90deg)' }}><MeadowIcon name="chevronRight" size={16} mono color={K.muted} /></span>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700 }}>
+          {record.stamps ? <>Your kiosk week <span style={{ display: 'block', color: K.muted, fontSize: 12, fontWeight: 500 }}>{record.stamps.mine}/7 nights stamped</span></>
+            : <>Last shift <span style={{ color: K.muted, fontWeight: 500 }}>/ {last!.served} served</span></>}
+        </div>
+        {last && <strong aria-label={`Last shift grade ${last.grade}`} style={{ ...TYPE.number, fontSize: 20, color: K.leaf }}>{last.grade}</strong>}
+        <span className="kiosk-book-chevron" style={{ display: 'flex' }}><MeadowIcon name="chevronRight" size={16} mono color={K.muted} /></span>
       </summary>
-      <div style={{ padding: '0 0 14px', display: 'grid', gap: 12, fontSize: 14, color: K.muted }}>
-        <div>{mine ? 'Your shift' : 'Their shift'}: {GRADE_WORD[last.grade]}</div>
-        {last.note && <p style={{ margin: 0, lineHeight: 1.45, color: K.text }}>{last.note}</p>}
+      <div className="m-focus" tabIndex={0} aria-label="Shift book" style={{ padding: '0 0 14px', display: 'grid', gap: 12, fontSize: 14, color: K.muted,
+        maxHeight: 'min(32dvh, 240px)', overflowY: 'auto', overscrollBehavior: 'contain', scrollbarWidth: 'thin', scrollbarColor: `${K.line} ${K.surface}` }}>
+        {record.stamps && <KioskWeeklyStamps week={record.stamps} />}
+        {last && <div>Last shift: {mine ? 'you' : 'them'}, {last.served} served / {GRADE_WORD[last.grade]}</div>}
+        {last?.note && <p style={{ margin: 0, lineHeight: 1.45, color: K.text }}>{last.note}</p>}
         <div style={{ borderTop: `1px solid ${K.line}`, paddingTop: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Together tonight</span><strong style={{ color: K.text, ...TYPE.number }}>{record.tonight} / {NIGHT_GOAL}</strong></div>
           <div style={{ height: 5, marginTop: 9, background: K.raised, borderRadius: 3, overflow: 'hidden' }}>
@@ -35,7 +41,7 @@ export default function KioskFrontControls({ record, mine, practiceReason, disab
         </div>
         {record.week.mine + record.week.theirs > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
           <span>You <strong style={{ color: K.text, ...TYPE.number }}>{record.week.mine}</strong></span>
-          <span style={kioskLabel}>This week</span><span>Them <strong style={{ color: K.text, ...TYPE.number }}>{record.week.theirs}</strong></span>
+          <span style={kioskLabel}>Last 7 nights</span><span>Them <strong style={{ color: K.text, ...TYPE.number }}>{record.week.theirs}</strong></span>
         </div>}
       </div>
     </details>}

@@ -1,12 +1,12 @@
-export type RewardNewsTarget = 'quests' | 'profile' | 'play' | 'kitchen' | 'menu'
+export type RewardNewsTarget = 'quests' | 'profile' | 'play' | 'kitchen' | 'menu' | 'kiosk'
 export const REWARD_NEWS_CHANGED = 'eren:reward-news-changed'
-const TARGETS: RewardNewsTarget[] = ['quests', 'profile', 'play', 'kitchen', 'menu']
+const TARGETS: RewardNewsTarget[] = ['quests', 'profile', 'play', 'kitchen', 'menu', 'kiosk']
 type News = Record<RewardNewsTarget, { seen: string[]; unread: string[] }>
 const memory = new Map<string, News>()
 export const rewardNewsKey = (actor: string) => `eren:reward-news:v1:${actor}`
 const empty = (): News => ({
   quests: { seen: [], unread: [] }, profile: { seen: [], unread: [] }, play: { seen: [], unread: [] },
-  kitchen: { seen: [], unread: [] }, menu: { seen: [], unread: [] },
+  kitchen: { seen: [], unread: [] }, menu: { seen: [], unread: [] }, kiosk: { seen: [], unread: [] },
 })
 export function readRewardNews(actor: string): News {
   const known = memory.get(actor) ?? empty()

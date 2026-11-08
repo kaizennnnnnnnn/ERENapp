@@ -20,6 +20,7 @@ function hooks(){
 function fixture(kind='provider',options={}){
   const react=hooks(),storage=options.storage??new Map(),session=options.session??new Map(),receipts=options.receipts??new Map(),calls=[],events=[],listeners=new Map(),foreground=new Set(),jobs=new Set(),intervals=new Map()
   const state={user:USER,home:HOME,path:'/home',scene:null,now:NOW,mode:'ok',hold:null,supers:0,weekly:0,pending:0,level:3,claimed:3,loading:false,
+    nightMode:'missing',worked:false,bonusDue:0,energy:80,statsLoading:false,
     gacha:{user_id:USER,gacha_tickets:0,total_pulls:0,stardust:0,pulls_since_epic:0,pulls_since_legendary:0,last_free_food_gacha:null,last_free_donut:null,last_free_fortune:null},...options.state}
   Date.now=()=>state.now
   global.localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,String(v))}
@@ -45,6 +46,17 @@ function fixture(kind='provider',options={}){
   },rpc(name,args){return{abortSignal:async signal=>{
     assert.ok(signal instanceof AbortSignal);calls.push({name,args:clone(args)})
     if(state.mode==='offline')throw Error('offline')
+    if(name==='get_kiosk_night_status'){
+      if(state.nightMode==='missing')return{data:null,error:{code:'PGRST202'}}
+      if(state.nightMode==='offline')return{data:null,error:{code:'42501'}}
+      const day=new Date(state.now-4*3600000).toISOString().slice(0,10),reset=new Date(day+'T04:00:00Z');reset.setUTCDate(reset.getUTCDate()+1)
+      const data={ok:true,version:2,user_id:args.p_expected_user,household_id:args.p_household_id,night_date:day,time_zone:'UTC',
+        server_time:new Date(state.now).toISOString(),starts_at:day+'T04:00:00Z',resets_at:reset.toISOString(),worked:state.worked,bonus_due:state.bonusDue,night_total:0,rows:[]}
+      if(state.hold)await state.hold.promise
+      if(state.nightMode==='bad-actor')data.user_id='other'
+      if(state.nightMode==='bad-home')data.household_id='other'
+      return{data,error:null}
+    }
     if(name==='read_reward_indicators'){
       if(state.mode==='legacy')return{data:null,error:{code:'PGRST202'}}
       const data={ok:true,user_id:args.p_expected_user,gacha:getGacha(args.p_expected_user)??{last_free_donut:null,last_free_food_gacha:null,gacha_tickets:0},supers:state.supers,weekly:state.weekly}
@@ -77,12 +89,13 @@ function fixture(kind='provider',options={}){
     './useAuth':{useAuth:()=>({user:state.user?{id:state.user}:null}),PROFILE_UPDATED_EVENT:'eren:profile-updated'},
     './CareContext':{useCare:()=>({activeScene:state.scene})},'./TaskContext':{useTasks:()=>({pendingRewards:state.pending,level:state.level,loading:state.loading})},
     '@/contexts/TaskContext':{useTasks:()=>({coins:state.coins})},'./useErenStats':{useErenStats:()=>({refetch})},
+    '@/hooks/useErenStats':{useErenStats:()=>({stats:{household_id:state.home,energy:state.energy},loading:state.statsLoading})},
     '@/lib/supabase/client':{createClient:()=>client},'./supabaseRetry':{writeWithRetry:track(writeWithRetry),withRetry:track(withRetry)},
     '@/lib/supabaseRetry':{writeWithRetry:track(writeWithRetry),withRetry:track(withRetry)},
     '@/lib/onForeground':{onForeground:fn=>{foreground.add(fn);return()=>foreground.delete(fn)}}})
   const run=kind==='provider'?()=>load('src/contexts/RewardIndicators.tsx').RewardIndicatorsProvider({children:null}).props.value:()=>load('src/hooks/useGacha.ts').useGacha()
   const h={state,calls,events,storage,session,receipts,react,foreground,intervals,client,
-    helpers:load('src/lib/rewardIndicators.ts'),news:load('src/lib/rewardNews.ts'),
+    helpers:load('src/lib/rewardIndicators.ts'),news:load('src/lib/rewardNews.ts'),journal:load('src/lib/savedRpc.ts'),
     render:()=>react.render(run),
     async settle(){let value;for(let i=0;i<80;i++){value=h.render();await new Promise(r=>setImmediate(r));if(jobs.size&&!state.hold)await Promise.all(Array.from(jobs));if(!react.dirty&&!jobs.size)return h.render()}throw Error('Indicator effects did not settle')},
     unmount(){react.unmount();global.setInterval=realSetInterval;global.clearInterval=realClearInterval}}
@@ -160,6 +173,40 @@ test('existing paid pull recovery takes precedence over a newly available daily 
   saved.prepareSavedRpc(USER,'pull_gacha_atomic','food:1',{p_banner_id:'food',p_count:1,p_use_ticket:false})
   h.state.mode='ok';let v=h.render();await v.pullSingle('food');v=await h.settle()
   assert.equal(h.calls.find(c=>c.name).name,'pull_gacha_atomic');assert.equal(h.state.coins,450);assert.equal(v.freeFoodReady,true);h.unmount()
+})
+
+test('kiosk readiness uses confirmed household nights and enough energy, with bonus priority even when tired',async()=>{
+  const h=fixture('provider',{state:{nightMode:'ok'}});let v=await h.settle();assert.match(v.places['/shawarma'],/paid shift/)
+  h.state.energy=29;v=await h.settle();assert.equal(v.places['/shawarma'],undefined)
+  h.state.bonusDue=40;for(const fn of h.foreground)fn();v=await h.settle();assert.match(v.places['/shawarma'],/bonus/)
+  h.state.bonusDue=0;h.state.energy=80;h.state.worked=true;for(const fn of h.foreground)fn();v=await h.settle();assert.equal(v.places['/shawarma'],undefined)
+  h.state.worked=false;h.state.statsLoading=true;for(const fn of h.foreground)fn();v=await h.settle();assert.equal(v.places['/shawarma'],undefined);h.unmount()
+})
+test('kiosk failures and mismatched household replies never invent a paid shift',async()=>{
+  for(const nightMode of ['missing','offline','bad-actor','bad-home']){const h=fixture('provider',{state:{nightMode}});const v=await h.settle();assert.equal(v.places['/shawarma'],undefined);h.unmount()}
+})
+test('kiosk save and bonus recovery dots survive missing status, and remain scoped to the household',async()=>{
+  const h=fixture();await h.settle()
+  h.journal.prepareSavedRpc(USER,'close_kiosk_night_atomic',HOME+':shift',{p_expected_user:USER,p_household_id:HOME})
+  for(const fn of h.foreground)fn();let v=await h.settle();assert.match(v.places['/shawarma'],/finished shift/)
+  h.state.home='different-home';v=await h.settle();assert.equal(v.places['/shawarma'],undefined)
+  h.journal.prepareSavedRpc(USER,'claim_kiosk_night_bonus_atomic','different-home:bonus',{p_expected_user:USER,p_household_id:'different-home'})
+  for(const fn of h.foreground)fn();v=await h.settle();assert.match(v.places['/shawarma'],/bonus needs confirmation/);h.unmount()
+})
+test('received kiosk rewards remain unread until the kiosk opens, and receipt replay never re-dots them',async()=>{
+  const h=fixture();await h.settle();h.news.receiveRewardNews(USER,'kiosk','shift:one');let v=await h.settle()
+  assert.match(v.places['/shawarma'],/New kiosk rewards/);assert.equal(v.news.kiosk,true)
+  h.state.path='/shawarma';v=await h.settle();assert.equal(v.news.kiosk,false);assert.equal(v.places['/shawarma'],undefined)
+  h.state.path='/home';h.news.receiveRewardNews(USER,'kiosk','shift:one');v=await h.settle();assert.equal(v.news.kiosk,false);h.unmount()
+})
+test('late kiosk reads cannot cross accounts or households, or update an unmounted provider',async()=>{
+  for(const change of ['actor','home','unmount']){
+    const hold=defer(),h=fixture('provider',{state:{nightMode:'ok',hold}});await new Promise(r=>setImmediate(r))
+    if(change==='unmount')h.unmount()
+    else{h.state[change==='actor'?'user':'home']='changed';h.state.nightMode='missing';h.state.hold=null;assert.equal(h.render().places['/shawarma'],undefined)}
+    hold.resolve();h.state.hold=null;const value=await h.settle();assert.equal(h.react.late,0)
+    if(change!=='unmount'){assert.equal(value.places['/shawarma'],undefined);h.unmount()}
+  }
 })
 ;(async()=>{for(const{name,run}of tests){await run();console.log('PASS '+name)}console.log('Reward indicators: '+tests.length+'/'+tests.length+' client scenarios passed')})()
   .catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{for(const f of fixtures)f.unmount()})

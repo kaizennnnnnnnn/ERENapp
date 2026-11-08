@@ -3,6 +3,7 @@ import { writeWithRetry } from './supabaseRetry'
 import { pendingSavedRpcs, prepareSavedRpc, savedRpc } from './savedRpc'
 import { KIOSK_BONUS_RPC } from './kioskSaves'
 import type { ShiftRow } from '@/components/kiosk/useKioskRecord'
+import { EXHAUSTED_ENERGY } from './gameRewards'
 
 export interface KioskNight {
   ok: true; version: 2; user_id: string; household_id: string
@@ -32,6 +33,14 @@ export function nightRemaining(night: KioskNight, monotonic = performance.now())
 export function nightCountdown(ms: number) {
   const minutes = Math.ceil(Math.max(0, ms) / 60_000)
   return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`
+}
+export function kioskNotice(night: KioskNight | null, energy: number | null, pendingSaves: number, pendingBonuses: number, unread: boolean) {
+  if (pendingSaves > 0) return 'A finished shift needs confirmation'
+  if (pendingBonuses > 0) return 'A nightly bonus needs confirmation'
+  if (night && night.bonus_due > 0) return 'Your nightly bonus is ready'
+  if (unread) return 'New kiosk rewards are ready to view'
+  if (night && nightRemaining(night) > 0 && !night.worked && energy !== null && energy >= EXHAUSTED_ENERGY && energy <= 100) return 'A paid shift is ready'
+  return null
 }
 export function pendingKioskBonuses(actor: string, home: string) {
   return pendingSavedRpcs(actor, KIOSK_BONUS_RPC).filter(request => request.args.p_expected_user === actor && request.args.p_household_id === home)

@@ -8,7 +8,7 @@ import { KIOSK as K, kioskLabel, kioskPanel } from './kioskTheme'
 export default function KioskSpecialBoard({ special }: { special: NightlySpecial }) {
   const ingredients: Array<{ id: string; label: string; sprite: string }> = special.wrap.toppings.map(id => TOPPING_BY_ID[id])
   if (special.wrap.sauce) ingredients.push(SAUCE_BY_ID[special.wrap.sauce])
-  return <details className="kiosk-special-board" style={{ ...kioskPanel, padding: '0 14px' }}>
+  return <details name="kiosk-front-panel" className="kiosk-special-board" style={{ ...kioskPanel, padding: '0 14px' }}>
     <summary className="m-focus" style={{ display: 'flex', alignItems: 'center', gap: 11, minHeight: 68, cursor: 'pointer', listStyle: 'none' }}>
       <img src="/wrap_rolled.webp" alt="" draggable={false} style={{ width: 32, height: 42, objectFit: 'contain', flexShrink: 0 }} />
       <div style={{ minWidth: 0, flex: 1, padding: '10px 0' }}>
