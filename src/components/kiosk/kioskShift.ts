@@ -665,6 +665,8 @@ export type Mood = 'normal' | 'rude'
 
 export interface Order {
   kind: VisitKind
+  /** A one-off daily recipe, not a replacement for this guest's usual order. */
+  special?: { id: string; name: string }
   /** One wrap, or two when they're buying for someone waiting outside.
    *  Empty for a chat: there's nothing to make. */
   wraps: Wrap[]

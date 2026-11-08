@@ -13,8 +13,18 @@ mocks['@/components/meadow'] = {
 const Report = load('src/components/kiosk/ShiftReport.tsx').default
 const Stations = load('src/components/kiosk/KioskStations.tsx').default
 const Front = load('src/components/kiosk/KioskFrontControls.tsx').default
+const SpecialBoard = load('src/components/kiosk/KioskSpecialBoard.tsx').default
+const { nightlySpecialFor } = load('src/components/kiosk/kioskSpecials.ts')
+const { menuFor } = load('src/components/kiosk/kioskShift.ts')
 const { KIOSK: K } = load('src/components/kiosk/kioskTheme.ts')
 const html = (Component, props) => renderToStaticMarkup(React.createElement(Component, props))
+const special = nightlySpecialFor('2026-11-08', menuFor(0))
+const specialMarkup = html(SpecialBoard, { special })
+assert.match(specialMarkup, /Tonight&#x27;s special/)
+assert.ok(specialMarkup.includes(special.name))
+assert.match(specialMarkup, /<summary/)
+assert.match(specialMarkup, /With freshly carved meat/)
+assert.doesNotMatch(specialMarkup, /font-pixel|linear-gradient|text-shadow/)
 const report = {
   takings: { served: 3, wrong: 1, walked: 2, missedCalls: 1, bestStreak: 3, base: 30, tips: 12, inDark: 1 },
   grade: 'B', coins: 42, paid: true, weather: 'rain', early: false, nightTotal: 3, goalMet: false, unlock: null,

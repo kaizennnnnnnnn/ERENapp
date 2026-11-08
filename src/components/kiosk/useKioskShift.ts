@@ -36,6 +36,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
+import { specialOrder, type NightlySpecial } from './kioskSpecials'
 import {
   MAX_USES, MAX_PORTIONS, EMPTY_BUILD, EMPTY_TRAY, TOPPING_BY_ID,
   rollOrder, rollChat, rollLate, orderMatches, rememberOrder, portionsOf,
@@ -208,6 +209,7 @@ function arriveWhenDrawn(order: Order): Promise<void> {
 }
 
 export interface ShiftOpts {
+  special?: NightlySpecial | null
   /** What the kiosk currently sells. */
   menu: MenuState
   /** Who's been here before, and what they had. */
@@ -228,7 +230,7 @@ export interface ShiftOpts {
 }
 
 export function useKioskShift(opts: ShiftOpts): KioskShift {
-  const { menu, regulars, lifetimeWraps, nightSoFar, payable, onClose } = opts
+  const { menu, regulars, lifetimeWraps, nightSoFar, payable, onClose, special } = opts
 
   const [stock, setStock] = useState<Record<ToppingId, number>>({ ...FULL_STOCK })
   const [meat, setMeat] = useState(MAX_USES)
@@ -350,10 +352,11 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
     // chat before you've served anyone reads as the game being broken.
     const roll = Math.random()
     const settled = arrivals.current > 0
+    if (!settled && special) { walkUp(specialOrder(special)); return }
     if (settled && roll < CHAT_CHANCE) { walkUp(rollChat()); return }
     const rude = settled && roll < CHAT_CHANCE + RUDE_CHANCE
     walkUp(rollOrder(menu, { ...regulars, ...learned.current }, rude))
-  }, [menu, regulars, walkUp])
+  }, [menu, regulars, walkUp, special])
 
   /** The one who turns up after the shutters should already be down. */
   const lateCustomer = useCallback(() => {
@@ -717,7 +720,7 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       streakRef.current += 1
       setStreak(streakRef.current)
       // A costume you got right is a costume the kiosk remembers.
-      learned.current = {
+      if (!current.special) learned.current = {
         ...learned.current,
         [current.customer.id]: rememberOrder(
           current,

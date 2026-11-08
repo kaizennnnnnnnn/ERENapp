@@ -146,6 +146,7 @@ test('the actual kiosk no longer uses split wallet/memory writes or full-snapsho
   const interior=fs.readFileSync('src/components/kiosk/KioskInterior.tsx','utf8'),record=fs.readFileSync('src/components/kiosk/useKioskRecord.ts','utf8')
   assert.ok(!interior.includes('addCoins'));assert.ok(!record.includes(".from('eren_stats')"));assert.ok(!record.includes(".insert({"))
   const shift=fs.readFileSync('src/components/kiosk/useKioskShift.ts','utf8');assert.ok(shift.includes('order.times - (regulars[id]?.times ?? 0)'))
-  assert.ok(interior.includes('const opening = useRef'));assert.ok(interior.includes('banked={Boolean(confirmed)}'))
+  assert.ok(interior.includes('const [opening] = useState'));assert.ok(interior.includes('banked={Boolean(confirmed)}'))
+  assert.ok(interior.includes('nightlySpecialFor(record.session.shift_date, record.menu)'))
 })
 ;(async()=>{for(const{name,run}of tests){await run();console.log('PASS '+name)}console.log(`Kiosk client: ${tests.length}/${tests.length} passed (actual hook/helpers, mock transport)`)})().catch(e=>{console.error(e);process.exitCode=1})

@@ -4,13 +4,16 @@ import { PrimaryButton, MeadowIcon, TYPE } from '@/components/meadow'
 import { GRADE_WORD, NIGHT_GOAL } from './kioskEconomy'
 import type { KioskRecord } from './useKioskRecord'
 import { KIOSK as K, kioskPanel, kioskLabel } from './kioskTheme'
+import KioskSpecialBoard from './KioskSpecialBoard'
+import type { NightlySpecial } from './kioskSpecials'
 
-export default function KioskFrontControls({ record, mine, practiceReason, disabled, onEnter }: {
-  record: KioskRecord; mine: boolean; practiceReason: string | null; disabled: boolean; onEnter: () => void
+export default function KioskFrontControls({ record, mine, practiceReason, disabled, onEnter, special }: {
+  record: KioskRecord; mine: boolean; practiceReason: string | null; disabled: boolean; onEnter: () => void; special?: NightlySpecial | null
 }) {
   const last = record.lastShift
   return <div style={{ position: 'absolute', left: 16, right: 16, bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
     zIndex: 25, display: 'grid', gap: 12, maxWidth: 380, margin: '0 auto' }}>
+    {special && <KioskSpecialBoard special={special} />}
     {last && <details style={{ ...kioskPanel, padding: '0 14px' }}>
       <summary className="m-focus" style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 54, cursor: 'pointer', listStyle: 'none' }}>
         <MeadowIcon name="scroll" size={22} mono color={K.leaf} />

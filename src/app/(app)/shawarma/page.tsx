@@ -16,6 +16,7 @@ import KioskSaveNotice from '@/components/kiosk/KioskSaveNotice'
 import KioskFrontControls from '@/components/kiosk/KioskFrontControls'
 import { KIOSK as K, KIOSK_CSS, kioskPanel, kioskRound } from '@/components/kiosk/kioskTheme'
 import { RoundButton, MeadowIcon } from '@/components/meadow'
+import { useNightlySpecial } from '@/components/kiosk/useNightlySpecial'
 
 // Art coordinates keep the cook behind the front rail on every screen size.
 const PIC = { src: '/ShawarmaKiosk.png?v=2', w: 768, h: 1376 }
@@ -35,6 +36,7 @@ export default function ShawarmaPage() {
   const { user, profile } = useAuth()
   const { stats } = useErenStats()
   const cat = useCat(), record = useKioskRecord()
+  const special = useNightlySpecial(record.menu)
   const [phase, setPhase] = useState<Phase>('front')
   const tired = (stats?.energy ?? 100) < EXHAUSTED_ENERGY
   const payable = record.session ? record.session.paid : !record.workedTonight && !tired
@@ -104,7 +106,7 @@ export default function ShawarmaPage() {
             <div style={{ fontSize: 12, color: K.muted, marginTop: 2 }}>The night shift</div></div>
         </div>
       </header>
-      {phase === 'front' && <KioskFrontControls record={record} mine={mine} practiceReason={practiceReason}
+      {phase === 'front' && <KioskFrontControls record={record} mine={mine} practiceReason={practiceReason} special={special}
         disabled={record.saving || record.pending > 0} onEnter={() => { void goInside() }} />}
       {phase === 'front' && (record.saving || record.pending > 0) && <div style={{ position: 'absolute', zIndex: 35,
         top: 'calc(88px + env(safe-area-inset-top, 0px))', left: 16, right: 16 }}>

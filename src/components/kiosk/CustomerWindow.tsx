@@ -295,6 +295,9 @@ export default function CustomerWindow({
           width: 260, maxWidth: 'calc(100vw - 48px)',
           borderColor: tone,
         }}>
+          {order.special && !paid && !left && <div style={{ color: K.leaf, fontSize: 12, fontWeight: 800, lineHeight: 1.3, textAlign: 'center' }}>
+            Tonight's special / {order.special.name}
+          </div>}
           {speech && (
             <span key={speech.id} style={{
               fontSize: 14, lineHeight: 1.4, letterSpacing: 0,

@@ -54,6 +54,7 @@ import type { KioskRecord } from './useKioskRecord'
 import KioskClock from './KioskClock'
 import KioskStations from './KioskStations'
 import { KIOSK_CSS } from './kioskTheme'
+import { nightlySpecialFor } from './kioskSpecials'
 
 interface KioskView {
   id: string
@@ -115,7 +116,8 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   const [dragX, setDragX] = useState(0)
   const [fridgeOpen, setFridgeOpen] = useState(false)
 
-  const opening = useRef({ menu: record.menu, regulars: record.regulars, wraps: record.lifetimeWraps, tonight: record.tonight })
+  const [opening] = useState(() => ({ menu: record.menu, regulars: record.regulars, wraps: record.lifetimeWraps, tonight: record.tonight,
+    special: record.session ? nightlySpecialFor(record.session.shift_date, record.menu) : null }))
   const confirmed = record.settlement?.session_id === record.session?.session_id ? record.settlement : null
   /** When you pulled the shutter down, as a clock reading. Null until you do.
    *  The receipt waits for it: the night ends with the window being shut, not
@@ -124,12 +126,13 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   const [receiptUp, setReceiptUp] = useState(false)
 
   const shift = useKioskShift({
-    menu: opening.current.menu,
-    regulars: opening.current.regulars,
-    lifetimeWraps: opening.current.wraps,
+    special: opening.special,
+    menu: opening.menu,
+    regulars: opening.regulars,
+    lifetimeWraps: opening.wraps,
     // What the two of you have already served tonight, so the shared goal
     // knows where the night stands before you touched it.
-    nightSoFar: opening.current.tonight,
+    nightSoFar: opening.tonight,
     payable,
     onClose: useCallback((report, regulars) => {
       void record.closeShift({ report, regulars })

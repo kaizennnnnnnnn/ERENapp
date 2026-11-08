@@ -38,8 +38,21 @@ ingredient interaction; a client-generated report is still an untrusted score.
 This step deliberately keeps the existing local-calendar daily reset. The date
 is now fixed by the server at entry rather than recalculated when closing.
 Shared-bonus catch-up for a partner who finished earlier, the household reset
-clock, daily specials, guaranteed visitors, stamps and daily dock badge are
-separate next steps. Existing kiosk artwork and opening/closing animations stay.
+clock, stamps and daily dock badge are separate next steps. Existing kiosk
+artwork and opening/closing animations stay.
+
+## Nightly Special
+
+The front board previews one of seven named recipes using the current local
+calendar date. Entering freezes the recipe and featured opening customer from
+the server-confirmed session `shift_date`; crossing midnight cannot change an
+active shift. Recipes only use day-one ingredients and keep normal prices and
+tips, with no new bonus, claim, daily allowance or SQL change. The special guest
+always shows the full recipe rather than asking for a usual. Serving that order
+does not replace the guest's saved usual; later visitors retain normal behavior.
+The board refreshes on foreground return and each minute while open. Devices in
+different timezones still follow the existing per-player calendar reset until
+the shared household reset is implemented.
 
 Only a finished report is recoverable; this does not resume half-built meals
 after a page reload. Storage-blocked browsers retain retry intent in memory,
@@ -53,6 +66,8 @@ client. If the first migration version was already applied, run the small
 ```sh
 node scripts/check_kiosk_sql.cjs
 node scripts/check_kiosk_client.cjs
+node scripts/check_kiosk_specials.cjs
+node scripts/check_kiosk_ui.cjs
 npx tsc --noEmit
 npm run build
 ```

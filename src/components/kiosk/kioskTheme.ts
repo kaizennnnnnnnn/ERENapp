@@ -25,6 +25,9 @@ export const KIOSK_CSS = `
 .kiosk-theme button, .kiosk-theme input { font-family: inherit; letter-spacing: 0; }
 .kiosk-theme button:focus-visible, .kiosk-theme input:focus-visible { outline: 3px solid ${KIOSK.leaf}; outline-offset: 3px; }
 .kiosk-theme button[disabled] { cursor: default; }
+.kiosk-special-board[open] .kiosk-special-chevron { transform: rotate(90deg); }
+.kiosk-theme summary:focus-visible { outline: 3px solid ${KIOSK.leaf}; outline-offset: 3px; border-radius: 6px; }
+.kiosk-theme summary::-webkit-details-marker { display: none; }
 .kiosk-stations [role="radio"] { color: ${KIOSK.muted} !important; background: transparent !important; box-shadow: none !important; }
 .kiosk-stations [role="radio"][aria-checked="true"] { color: ${KIOSK.text} !important; background: ${KIOSK.raised} !important; box-shadow: 0 2px 0 ${KIOSK.lip} !important; }
 .kiosk-theme .kiosk-note-input::placeholder { color: ${KIOSK.faint}; opacity: 1; }
