@@ -29,8 +29,6 @@ import RoomWeather from '@/components/weather/RoomWeather'
 import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
 import { M, MeadowIcon, Meter, Tag, TYPE } from '@/components/meadow'
 
-const CAT_BOTTOM = 'calc(176px + env(safe-area-inset-bottom, 0px))'
-
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
 
@@ -75,7 +73,7 @@ const ROOM_PILL: React.CSSProperties = {
 export default function PlayScene({ onClose }: Props) {
   const router = useRouter()
   const { user, profile } = useAuth()
-  const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const { stats, finishPlaySession, playSaveBusy, playSavePending, playSaveError } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const wish = useWish()
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'play' : false
@@ -90,6 +88,8 @@ export default function PlayScene({ onClose }: Props) {
   const [ballMoving,   setBallMoving]   = useState(false)
   const [trailDots,    setTrailDots]    = useState<{id:number;x:number;y:number}[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [footerHeight, setFooterHeight] = useState(136)
+  const catBottom = `calc(${Math.max(176, footerHeight + 40)}px + env(safe-area-inset-bottom, 0px))`
   // The leaderboard fills the screen from inside the scene, under the
   // room-sized top bar (z-60), whose needs pill would sit on its week/all-time
   // toggle; the bar steps aside while it's open, as it does for the Attic's
@@ -105,8 +105,17 @@ export default function PlayScene({ onClose }: Props) {
   const footerRef = useRef<HTMLDivElement>(null)
   const animRef  = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
   const trailId  = useRef(0)
-  const saveLock = useRef(false)
+  const saveLock = useRef<symbol | null>(null)
+  const mounted = useRef(true), saveEpoch = useRef(0)
+  const saveScope = useRef({ userId: user?.id, householdId: profile?.household_id })
+  if (saveScope.current.userId !== user?.id || saveScope.current.householdId !== profile?.household_id) saveScope.current = { userId: user?.id, householdId: profile?.household_id }
+  const currentSaveScope = saveScope.current
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    mounted.current = true; saveLock.current = null
+    setDone(false); setSaving(false); setThrowCount(0); setToast(null); setShowLeaderboard(false)
+    return () => { mounted.current = false; saveEpoch.current++; if (toastTimer.current !== null) clearTimeout(toastTimer.current) }
+  }, [user?.id, profile?.household_id])
 
   const floorY = useCallback(() => {
     const room = sceneRef.current?.getBoundingClientRect()
@@ -114,10 +123,16 @@ export default function PlayScene({ onClose }: Props) {
     return room && room.height > 0 && footer ? Math.max(20, Math.min(88, (footer.top - room.top - 16) / room.height * 100)) : 88
   }, [])
   useEffect(() => {
-    const fit = () => { const floor = floorY(); setBallPos(current => current.y > floor ? { ...current, y: floor } : current) }
+    const fit = () => {
+      const floor = floorY()
+      setBallPos(current => current.y > floor ? { ...current, y: floor } : current)
+      if (footerRef.current) setFooterHeight(footerRef.current.getBoundingClientRect().height)
+    }
     fit()
+    const observer = new ResizeObserver(fit)
+    if (footerRef.current) observer.observe(footerRef.current)
     window.addEventListener('resize', fit)
-    return () => window.removeEventListener('resize', fit)
+    return () => { observer.disconnect(); window.removeEventListener('resize', fit) }
   }, [floorY])
 
   // Reaction runner — Eren pounces when the ball settles near him. The rAF
@@ -130,8 +145,8 @@ export default function PlayScene({ onClose }: Props) {
   const animateBall = useCallback((sx: number, sy: number, vx: number, vy: number) => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
     let x = sx, y = sy, dvx = vx, dvy = vy
-    const floor = floorY()
     const step = () => {
+      const floor = floorY()
       x += dvx; dvy += 0.45; y += dvy
       if (x <= 3 || x >= 97) { dvx *= -0.75; x = x <= 3 ? 3 : 97 }
       if (y >= floor)         { dvy = Math.abs(dvy) < 1.5 ? 0 : -Math.abs(dvy) * 0.65; y = floor; dvx *= 0.88 }
@@ -178,7 +193,7 @@ export default function PlayScene({ onClose }: Props) {
   ), [cleanliness, playEren])
 
   function handleThrow(e: React.MouseEvent<HTMLDivElement>) {
-    if (done || isSleeping) return
+    if (done || isSleeping || saving || playSaveBusy || playSavePending) return
     const rect = sceneRef.current?.getBoundingClientRect()
     if (!rect) return
     const cx = ((e.clientX - rect.left) / rect.width)  * 100
@@ -194,26 +209,33 @@ export default function PlayScene({ onClose }: Props) {
   }
 
   async function handleDone() {
-    if (!user?.id || saveLock.current || done || throwCount < 1 || isSleeping) return
-    saveLock.current = true
+    if (!user?.id || saveLock.current || playSaveBusy || done || (!playSavePending && (throwCount < 1 || isSleeping))) return
+    const token = Symbol('finish-play'), generation = saveEpoch.current
+    const active = () => mounted.current && saveEpoch.current === generation && saveScope.current === currentSaveScope
+    if (!active()) return
+    saveLock.current = token
     setSaving(true)
     try {
-      const result = await applyAction(user.id, 'play')
+      const result = await finishPlaySession(playSavePending)
+      if (!active()) return
       setToastGood(result.success)
       setToast(result.message)
       if (result.success) {
         setDone(true)
-        completeTask('daily_play')
+        void completeTask('daily_play')
         reaction.play(happyFinisherBeats())
       }
     } catch {
+      if (!active()) return
       setToastGood(false)
       setToast('Could not save this play session. Please try again.')
     } finally {
-      setSaving(false)
-      saveLock.current = false
-      if (toastTimer.current !== null) clearTimeout(toastTimer.current)
-      toastTimer.current = setTimeout(() => setToast(null), 2500)
+      if (saveLock.current === token) saveLock.current = null
+      if (active()) {
+        setSaving(false)
+        if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => { if (active()) setToast(null) }, 2500)
+      }
     }
   }
 
@@ -248,7 +270,7 @@ export default function PlayScene({ onClose }: Props) {
           reaction plays. */}
       {!isSleeping && (
         <div className={cn('absolute z-10')}
-          style={{ bottom: CAT_BOTTOM, left: '50%', transform: 'translateX(-50%)' }}>
+          style={{ bottom: catBottom, left: '50%', transform: 'translateX(-50%)' }}>
           {/* Watch-the-ball lean — the whole cat tips toward the ball's side so
               he visibly tracks it as it flies. Derived from ballPos, which the
               rAF loop already re-renders every frame during flight, so it costs
@@ -288,7 +310,7 @@ export default function PlayScene({ onClose }: Props) {
           don't lean or hop with him. */}
       {!isSleeping && (reaction.phase === 'pounce' || reaction.phase === 'finish' || reaction.phase === PURR) && (
         <div className="absolute z-20 pointer-events-none" style={{
-          bottom: CAT_BOTTOM, left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
+          bottom: catBottom, left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
         }}>
           {reaction.phase === 'pounce' &&
             <SoundWord word="JINGLE!" color={WORD_COLOR.curious} left={50} top={4} />}
@@ -332,7 +354,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {toast && <CareToast msg={toast} ok={toastGood} top={`calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)`} />}
 
-      {throwCount === 0 && !done && (
+      {throwCount === 0 && !done && !playSavePending && !toast && (
         <div className="meadow-root absolute left-1/2 -translate-x-1/2 z-40 pointer-events-none"
           style={{ ...ROOM_PILL, top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)`, cursor: 'default' }}>
           <MeadowIcon name={isSleeping ? 'moon' : 'pad'} size={18} />
@@ -353,16 +375,19 @@ export default function PlayScene({ onClose }: Props) {
 
         <div className="flex items-center gap-3">
           <Tag tone="soft" size="sm" style={{ background: '#FFFFFF' }}>{throwCount} {throwCount === 1 ? 'throw' : 'throws'}</Tag>
-          {throwCount >= 1 && !done && (
+          {throwCount >= 1 && !done && !playSavePending && (
             <Tag tone="leaf" size="sm" icon={<MeadowIcon name="check" size={14} />}>Ready</Tag>
           )}
         </div>
 
         <DonePlayingButton
-          state={done ? 'done' : saving ? 'saving' : throwCount < 1 ? 'locked' : 'ready'}
-          disabled={throwCount < 1 || done || saving || isSleeping}
+          state={done ? 'done' : saving || playSaveBusy ? 'saving' : playSavePending ? 'retry' : throwCount < 1 ? 'locked' : 'ready'}
+          disabled={done || saving || playSaveBusy || (!playSavePending && (throwCount < 1 || isSleeping))}
           onClick={() => { playSound('ui_tap'); handleDone() }}
         />
+        {playSavePending && !done && !saving && !playSaveBusy && <p role="status" style={{ maxWidth: 320, margin: '4px 0 0', padding: '8px 12px', borderRadius: 8, background: '#FFFFFF', color: M.text2, fontSize: 13, lineHeight: 1.35, fontWeight: 500, textAlign: 'center' }}>
+          {playSaveError ?? 'Your last play session needs confirmation.'}
+        </p>}
       </div>
 
       {/* Leaderboard modal — opened via the HIGH SCORES button. Wrapped in
@@ -375,7 +400,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* Switch on the left to clear the SCORES/leaderboard buttons stacked
           on the right side of the playroom. */}
-      <LightSwitch side="left" targetBottom={CAT_BOTTOM} targetLeft="50%" persistKey="playroom" />
+      <LightSwitch side="left" targetBottom={catBottom} targetLeft="50%" persistKey="playroom" />
     </div>
   )
 }

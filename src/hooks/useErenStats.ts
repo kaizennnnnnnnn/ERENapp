@@ -13,6 +13,8 @@ import { DONUT_EFFECTS, type DonutEffectId } from '@/lib/donutEffects'
 import { catText, catWordsFromRow } from '@/lib/catWords'
 import { savedRpc } from '@/lib/savedRpc'
 import { pendingFoodAction, saveFoodAction, type FoodAction, type FoodActionResult } from '@/lib/foodActions'
+import { pendingPlaySession, savePlaySession, mergePlayStats, playSessionError, type PlaySessionSave } from '@/lib/playSessionSaves'
+import { onForeground } from '@/lib/onForeground'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -310,6 +312,20 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
   const [foodActionRetry, setFoodActionRetry] = useState<FoodAction | null>(null)
   const foodScope = useRef({ householdId, userId })
   foodScope.current = { householdId, userId }
+  const playScope = useRef({ householdId, userId })
+  if (playScope.current.userId !== userId || playScope.current.householdId !== householdId) playScope.current = { householdId, userId }
+  const currentPlayScope = playScope.current
+  const playEpoch = useRef(0), playMounted = useRef(true), playLock = useRef<symbol | null>(null)
+  const [playSaveBusy, setPlaySaveBusy] = useState(false)
+  const [playSavePending, setPlaySavePending] = useState(false)
+  const [playSaveIssue, setPlaySaveIssue] = useState<{ userId: string; householdId: string; message: string } | null>(null)
+  useEffect(() => {
+    playMounted.current = true; playLock.current = null; setPlaySaveBusy(false); setPlaySaveIssue(null)
+    const sync = () => setPlaySavePending(Boolean(userId && householdId && pendingPlaySession(userId, householdId)))
+    sync()
+    const off = onForeground(sync)
+    return () => { playMounted.current = false; playEpoch.current++; off() }
+  }, [userId, householdId])
 
   useEffect(() => {
     setFoodActionRetry(userId && householdId ? pendingFoodAction(userId, householdId) : null)
@@ -497,6 +513,7 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
             return {
               ...prev,
               food_by_user:   newRow.food_by_user,
+              updated_at:     Date.parse(newRow.updated_at) > Date.parse(prev.updated_at) ? newRow.updated_at : prev.updated_at,
               food_inventory: newRow.food_inventory,
               donuts_tasted: newRow.donuts_tasted,
               donut_effect: newRow.donut_effect,
@@ -534,6 +551,36 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const finishPlaySession = useCallback(async (recover = false): Promise<{ success: boolean; message: string }> => {
+    const generation = playEpoch.current
+    const active = () => playMounted.current && playEpoch.current === generation && playScope.current === currentPlayScope
+    const failure = (reason?: string) => ({ success: false, message: playSessionError(reason) })
+    if (!userId || !householdId || !active()) return failure('session_changed')
+    if (statsRef.current?.household_id !== householdId) return failure('loading')
+    if (playLock.current) return failure('busy')
+    const token = Symbol('play-session'); playLock.current = token; setPlaySaveBusy(true); setPlaySaveIssue(null)
+    try {
+      const response = await savePlaySession(supabase, userId, householdId, recover)
+      if (!active()) return failure('session_changed')
+      if (!response.ok) {
+        setPlaySaveIssue({ userId, householdId, message: playSessionError(response.reason) })
+        if (response.reason === 'sleeping') void fetchStats()
+        return failure(response.reason)
+      }
+      const saved = response as PlaySessionSave
+      statsRef.current = mergePlayStats(statsRef.current, saved.stats)
+      setStats(prev => mergePlayStats(prev, saved.stats))
+      window.dispatchEvent(new CustomEvent('eren:my-action', { detail: { household_id: householdId, user_id: userId, action_type: 'play' } }))
+      return { success: true, message: 'Playtime saved!' }
+    } catch {
+      if (active()) setPlaySaveIssue({ userId, householdId, message: playSessionError() })
+      return failure()
+    } finally {
+      if (playLock.current === token) playLock.current = null
+      if (active()) { setPlaySaveBusy(false); setPlaySavePending(Boolean(pendingPlaySession(userId, householdId))) }
+    }
+  }, [userId, householdId, currentPlayScope, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyAction = useCallback(async (userId: string, action: ActionType): Promise<{ success: boolean; message: string }> => {
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
@@ -749,6 +796,9 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
   return {
     stats, loading, error, applyAction, feedWithFood,
     runFoodAction, foodActionBusy, foodActionRetry,
+    finishPlaySession, playSaveBusy,
+    playSavePending: playSavePending && Boolean(userId && householdId && pendingPlaySession(userId, householdId)),
+    playSaveError: playSaveIssue?.userId === userId && playSaveIssue?.householdId === householdId ? playSaveIssue.message : null,
     spendCoins, addCoins,
     addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
     markDonutTasted, acceptMenuState, startDonutEffect, savePotion, savePotionsFound,

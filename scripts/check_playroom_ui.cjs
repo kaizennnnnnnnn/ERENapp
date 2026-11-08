@@ -8,14 +8,15 @@ const load = require('./lib/load_ts.cjs')(mocks)
 mocks['@/components/meadow'] = { ...load('src/components/meadow/tokens.ts'), ...load('src/components/meadow/Buttons.tsx'), MeadowIcon: load('src/components/PixelIcons.tsx').MeadowIcon }
 const { M } = mocks['@/components/meadow']
 const DoneButton = load('src/components/playroom/DonePlayingButton.tsx').default
-for (const state of ['locked', 'ready', 'saving', 'done']) {
+for (const state of ['locked', 'ready', 'saving', 'done', 'retry']) {
   const html = renderToStaticMarkup(React.createElement(DoneButton, { state, onClick() {} }))
-  assert.equal(/ disabled=""/.test(html), state !== 'ready')
+  assert.equal(/ disabled=""/.test(html), state !== 'ready' && state !== 'retry')
   assert.doesNotMatch(html, /Press Start|font-pixel|text-shadow/)
   assert.match(html, /prefers-reduced-motion/)
   assert.match(html, /playBounce/)
   if (state === 'saving') assert.match(html, /aria-busy="true"/)
   if (state === 'done') assert.match(html, /Great session!/)
+  if (state === 'retry') { assert.match(html, /Recover playtime/); assert.match(html, /aria-label="Recover play session"/) }
 }
 const file = 'src/components/care/PlayScene.tsx', text = fs.readFileSync(file, 'utf8')
 const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
@@ -38,15 +39,16 @@ assert.match(text, /Playroom energy/); assert.match(text, /ErenBell_tail/); asse
 const ref = current => ({ current }), frames = new Map(), timers = new Map()
 let nextFrame = 0, nextTimer = 0, calls = 0, rewards = 0, resolveSave
 const env = {
-  user: { id: 'tester' }, done: false, saving: false, throwCount: 0, isSleeping: false, ballPos: { x: 50, y: 84 }, trailDots: [],
+  user: { id: 'tester' }, profile: { household_id: 'home' }, done: false, saving: false, playSaveBusy: false, playSavePending: false, throwCount: 0, isSleeping: false, ballPos: { x: 50, y: 84 }, trailDots: [],
   sceneRef: ref({ getBoundingClientRect: () => ({ left: 100, top: 0, width: 360, height: 740 }) }),
   footerRef: ref({ getBoundingClientRect: () => ({ top: 585 }) }), animRef: ref(null), trailId: ref(0), lastPounceRef: ref(0),
-  reactionRef: ref({ play() {} }), reaction: { play() {} }, saveLock: ref(false), toastTimer: ref(null),
+  reactionRef: ref({ play() {} }), reaction: { play() {} }, saveLock: ref(null), toastTimer: ref(null), mounted: ref(true), saveEpoch: ref(0), saveScope: ref({userId:'tester',householdId:'home'}),
   useCallback: fn => fn, playSound() {}, happyFinisherBeats: () => [], completeTask() { rewards++ },
   requestAnimationFrame(fn) { frames.set(++nextFrame, fn); return nextFrame }, cancelAnimationFrame(id) { frames.delete(id) },
   setTimeout(fn, ms) { timers.set(++nextTimer, { fn, ms }); return nextTimer }, clearTimeout(id) { timers.delete(id) },
-  applyAction() { calls++; return new Promise(resolve => { resolveSave = resolve }) },
+  finishPlaySession() { calls++; return new Promise(resolve => { resolveSave = resolve }) },
 }
+env.currentSaveScope = env.saveScope.current
 for (const name of ['BallPos', 'TrailDots', 'BallMoving', 'LookDir', 'ThrowCount', 'Saving', 'Done', 'Toast', 'ToastGood']) {
   const key = name[0].toLowerCase() + name.slice(1)
   env['set' + name] = value => { env[key] = typeof value === 'function' ? value(env[key]) : value }
@@ -71,10 +73,10 @@ async function main() {
   const retry = api.handleDone(); resolveSave({ success: true, message: 'Saved' }); await retry
   assert.equal(calls, 2); assert.equal(env.done, true); assert.equal(rewards, 1)
   await api.handleDone(); assert.equal(calls, 2, 'Completed sessions cannot be saved twice')
-  env.done = false; env.applyAction = async () => { throw Error('Offline') }
+  env.done = false; env.finishPlaySession = async () => { throw Error('Offline') }
   await api.handleDone(); assert.equal(env.done, false); assert.equal(env.saving, false); assert.match(env.toast, /try again/)
   env.isSleeping = true; const throws = env.throwCount; api.handleThrow({ clientX: 380, clientY: 320 }); assert.equal(env.throwCount, throws)
-  await api.handleDone(); assert.equal(env.saveLock.current, false)
+  await api.handleDone(); assert.equal(env.saveLock.current, null)
   console.log('Playroom checks passed: Meadow button states, energy colours, retained animation/art, finite throws, footer-safe ball bounds, single save, failure/exception retry, successful completion and sleeping guards.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })

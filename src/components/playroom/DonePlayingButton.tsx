@@ -2,18 +2,19 @@
 
 import { MeadowIcon, PrimaryButton } from '@/components/meadow'
 
-type PlayState = 'locked' | 'ready' | 'saving' | 'done'
+type PlayState = 'locked' | 'ready' | 'saving' | 'done' | 'retry'
 const LABEL: Record<PlayState, string> = {
   locked: 'Done playing', ready: 'Done playing', saving: 'Saving...', done: 'Great session!',
+  retry: 'Recover playtime',
 }
 
 export default function DonePlayingButton({ state, onClick, disabled }: {
   state: PlayState; onClick: () => void; disabled?: boolean
 }) {
   return (
-    <PrimaryButton size="md" full onClick={onClick} disabled={disabled || state !== 'ready'} busy={state === 'saving'}
-      ariaLabel={state === 'done' ? 'Play session complete' : 'Finish the play session'}
-      icon={<MeadowIcon name={state === 'done' ? 'check' : 'paw'} size={20} color="#FFFFFF" />}
+    <PrimaryButton size="md" full onClick={onClick} disabled={disabled || (state !== 'ready' && state !== 'retry')} busy={state === 'saving'}
+      ariaLabel={state === 'retry' ? 'Recover play session' : state === 'done' ? 'Play session complete' : 'Finish the play session'}
+      icon={<MeadowIcon name={state === 'retry' ? 'replay' : state === 'done' ? 'check' : 'paw'} size={20} color="#FFFFFF" />}
       style={{ maxWidth: 320, padding: '0 14px', gap: 10, ...(state === 'done' ? { opacity: 1 } : {}) }}>
       <span style={{ flex: '1 1 0', minWidth: 0 }}>{LABEL[state]}</span>
       <BouncingBall />
