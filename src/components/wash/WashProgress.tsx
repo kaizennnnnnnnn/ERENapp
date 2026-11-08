@@ -3,7 +3,7 @@
 import { Card, M, MeadowIcon, Meter, PrimaryButton, Tag } from '@/components/meadow'
 import SqueakyCleanBanner from './SqueakyCleanBanner'
 
-export type WashPhase = 'soap' | 'rinse' | 'saving' | 'error' | 'done' | 'sleeping'
+export type WashPhase = 'soap' | 'rinse' | 'saving' | 'error' | 'recover' | 'done' | 'sleeping'
 
 export default function WashProgress({ phase, value, onRetry }: {
   phase: WashPhase
@@ -11,9 +11,9 @@ export default function WashProgress({ phase, value, onRetry }: {
   onRetry: () => void
 }) {
   if (phase === 'done') return <SqueakyCleanBanner />
-  if (phase === 'error') return (
-    <PrimaryButton full onClick={onRetry} icon={<MeadowIcon name="replay" size={22} mono color="#FFFFFF" />}>
-      Try again
+  if (phase === 'error' || phase === 'recover') return (
+    <PrimaryButton full onClick={onRetry} ariaLabel={phase === 'recover' ? 'Recover bath' : 'Retry bath save'} icon={<MeadowIcon name="replay" size={22} mono color="#FFFFFF" />}>
+      {phase === 'recover' ? 'Recover bath' : 'Try again'}
     </PrimaryButton>
   )
   const active = phase === 'soap' || phase === 'rinse'

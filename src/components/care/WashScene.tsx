@@ -129,7 +129,7 @@ const WASH_EREN_FALLBACK = {
 
 export default function WashScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const { stats, finishWashSession, washSaveBusy, washSavePending, washSaveError } = useErenStats(profile?.household_id ?? null)
   const cat = useCat()
   const { completeTask } = useTasks()
   const wish = useWish()
@@ -153,8 +153,12 @@ export default function WashScene({ onClose }: Props) {
   const [saving,     setSaving]     = useState(false)
   const [saveError,  setSaveError]  = useState<string | null>(null)
   const [washSaved,  setWashSaved]  = useState(false)
-  const savingRef = useRef(false)
+  const savingRef = useRef<symbol | null>(null)
   const savedRef = useRef(false)
+  const saveMounted = useRef(true), saveEpoch = useRef(0)
+  const saveScope = useRef({ userId: user?.id, householdId: profile?.household_id })
+  if (saveScope.current.userId !== user?.id || saveScope.current.householdId !== profile?.household_id) saveScope.current = { userId: user?.id, householdId: profile?.household_id }
+  const currentSaveScope = saveScope.current
 
   const bubbleId      = useRef(0)
   const dragSoapRef   = useRef(false)
@@ -162,6 +166,20 @@ export default function WashScene({ onClose }: Props) {
   const doneRef       = useRef(false)
   const showShowerRef = useRef(false)
   const coverageRef   = useRef(0)
+  useEffect(() => {
+    saveMounted.current = true; savingRef.current = null; savedRef.current = false
+    doneRef.current = false; showShowerRef.current = false; coverageRef.current = 0
+    dragSoapRef.current = false; dragShowerRef.current = false
+    setDone(false); setSaving(false); setWashSaved(false); setSaveError(null)
+    setCoverage(0); setBubbles([]); setShowShower(false); setDragSoap(false); setDragShower(false)
+    setWashStarted(false); setVisibleStage('stand'); prevStageRef.current = 'stand'; setPoof(null)
+    setScrubbing(false)
+    if (scrubStopRef.current) clearTimeout(scrubStopRef.current)
+    soapPosRef.current = { x: 12, y: 62 }; showerPosRef.current = { x: 75, y: 30 }
+    if (soapRef.current) { soapRef.current.style.left = '12%'; soapRef.current.style.top = '62%' }
+    if (showerRef.current) { showerRef.current.style.left = '75%'; showerRef.current.style.top = '30%' }
+    return () => { saveMounted.current = false; saveEpoch.current++ }
+  }, [user?.id, profile?.household_id])
 
   const cleanliness = stats?.cleanliness ?? 100
   const isDark = useIsDark()
@@ -280,7 +298,7 @@ export default function WashScene({ onClose }: Props) {
 
   // ── Soap pointer handlers ─────────────────────────────────────────────────
   function onSoapDown(e: React.PointerEvent) {
-    if (!e.isPrimary || e.button !== 0 || doneRef.current || isSleeping) return
+    if (!e.isPrimary || e.button !== 0 || doneRef.current || isSleeping || washSaveBusy || washSavePending) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragSoapRef.current = true
     setDragSoap(true)
@@ -309,6 +327,7 @@ export default function WashScene({ onClose }: Props) {
   }, [])
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (isSleeping || washSaveBusy || washSavePending || savingRef.current) return
     const rect = sceneRef.current?.getBoundingClientRect()
     if (!rect) return
     const px = ((e.clientX - rect.left) / rect.width)  * 100
@@ -357,7 +376,7 @@ export default function WashScene({ onClose }: Props) {
         updateCoverage(Math.max(0, coverageRef.current - 0.6))
       }
     }
-  }, [isOverEren, markScrub, updateCoverage])
+  }, [isOverEren, markScrub, updateCoverage, isSleeping, washSaveBusy, washSavePending])
 
   function onSoapUp() {
     dragSoapRef.current = false
@@ -370,7 +389,7 @@ export default function WashScene({ onClose }: Props) {
   }
 
   function onShowerDown(e: React.PointerEvent) {
-    if (!e.isPrimary || e.button !== 0 || doneRef.current || isSleeping || !showShowerRef.current) return
+    if (!e.isPrimary || e.button !== 0 || doneRef.current || isSleeping || washSaveBusy || washSavePending || !showShowerRef.current) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragShowerRef.current = true
     setDragShower(true)
@@ -394,23 +413,27 @@ export default function WashScene({ onClose }: Props) {
 
   // Keyboard and assistive clicks take a small step; pointer clicks stay on the drag path.
   function useSoapFromKeyboard(e: React.MouseEvent) {
-    if (e.detail !== 0 || doneRef.current || isSleeping) return
+    if (e.detail !== 0 || doneRef.current || isSleeping || washSaveBusy || washSavePending) return
     markScrub()
     updateCoverage(Math.min(100, coverageRef.current + 5))
   }
 
   function useShowerFromKeyboard(e: React.MouseEvent) {
-    if (e.detail !== 0 || doneRef.current || isSleeping || !showShowerRef.current) return
+    if (e.detail !== 0 || doneRef.current || isSleeping || washSaveBusy || washSavePending || !showShowerRef.current) return
     playSound('care_rinse')
     updateCoverage(Math.max(0, coverageRef.current - 10))
     if (coverageRef.current <= 10) void finishWash()
   }
 
   async function finishWash() {
-    if (!user?.id || savingRef.current || savedRef.current || !showShowerRef.current || coverageRef.current > 10) return
-    savingRef.current = true
+    const recover = washSavePending
+    if (!user?.id || savingRef.current || washSaveBusy || savedRef.current || (!recover && (isSleeping || !showShowerRef.current || coverageRef.current > 10))) return
+    const generation = saveEpoch.current, token = Symbol('finish-wash')
+    const active = () => saveMounted.current && saveEpoch.current === generation && saveScope.current === currentSaveScope
+    if (!active()) return
+    savingRef.current = token
     setSaveError(null)
-    if (!doneRef.current) {
+    if (!doneRef.current && !recover) {
       doneRef.current = true
       setDone(true)
       setScrubbing(false)
@@ -423,21 +446,25 @@ export default function WashScene({ onClose }: Props) {
     }
     setSaving(true)
     try {
-      const result = await applyAction(user.id, 'wash')
+      const result = await finishWashSession(recover)
+      if (!active()) return
       if (result.success) {
         savedRef.current = true
+        doneRef.current = true
+        setDone(true)
         setWashSaved(true)
-        completeTask('daily_wash')
+        void completeTask('daily_wash')
       } else setSaveError(result.message)
     } catch {
+      if (!active()) return
       setSaveError('Could not save this bath. Please try again.')
     } finally {
-      savingRef.current = false
-      setSaving(false)
+      if (savingRef.current === token) savingRef.current = null
+      if (active()) setSaving(false)
     }
   }
 
-  const progressPhase: WashPhase = isSleeping ? 'sleeping' : saving ? 'saving' : washSaved ? 'done'
+  const progressPhase: WashPhase = saving || washSaveBusy ? 'saving' : washSaved ? 'done' : washSavePending ? 'recover' : isSleeping ? 'sleeping'
     : done ? 'error' : showShower ? 'rinse' : 'soap'
 
   return (
@@ -620,7 +647,7 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ SHOWER HEAD ═══════════════════════════════════════════════════ */}
-      {!done && !isSleeping && showShower && (
+      {!done && !isSleeping && !washSavePending && !washSaveBusy && showShower && (
         <button type="button"
           ref={showerRef}
           aria-label={cat.t('Rinse {name}')} title="Shower"
@@ -670,7 +697,7 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ SOAP BAR ══════════════════════════════════════════════════════ */}
       {/* The soap prop stays on screen through the rinse phase (only the SOAP
           *meter* swaps to RINSE). It hides just on finish / while sleeping. */}
-      {!done && !isSleeping && (
+      {!done && !isSleeping && !washSavePending && !washSaveBusy && (
         <button type="button"
           ref={soapRef}
           aria-label={cat.t('Soap {name}')} title="Soap"
@@ -699,10 +726,10 @@ export default function WashScene({ onClose }: Props) {
         <Card padding="8px 14px" style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}` }}>
           <MeadowIcon name="drop" size={20} /><span style={{ fontSize: 15, fontWeight: 800 }}>Bathroom</span>
         </Card>
-        {saveError && <div role="alert" style={{ width: '100%', maxWidth: 340 }}>
+        {!saving && !washSaveBusy && !washSaved && (saveError || washSaveError || washSavePending) && <div role={saveError || washSaveError ? 'alert' : 'status'} style={{ width: '100%', maxWidth: 340 }}>
           <Card padding="12px 16px" style={{ display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 3px 0 ${M.overArtLip}` }}>
-            <MeadowIcon name="close" size={20} color={M.danger} />
-            <span style={{ fontSize: 14, lineHeight: 1.4, fontWeight: 700 }}>{saveError}</span>
+            <MeadowIcon name={saveError || washSaveError ? 'close' : 'clock'} size={20} color={saveError || washSaveError ? M.danger : M.leaf} />
+            <span style={{ fontSize: 14, lineHeight: 1.4, fontWeight: 700 }}>{saveError ?? washSaveError ?? 'Your last bath needs confirmation.'}</span>
           </Card>
         </div>}
       </div>

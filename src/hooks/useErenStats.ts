@@ -15,6 +15,7 @@ import { savedRpc } from '@/lib/savedRpc'
 import { pendingFoodAction, saveFoodAction, type FoodAction, type FoodActionResult } from '@/lib/foodActions'
 import { pendingPlaySession, savePlaySession, mergePlayStats, playSessionError, type PlaySessionSave } from '@/lib/playSessionSaves'
 import { onForeground } from '@/lib/onForeground'
+import { pendingWashSession, saveWashSession, mergeWashStats, washSessionError, type WashSessionSave } from '@/lib/washSessionSaves'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -327,6 +328,21 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     return () => { playMounted.current = false; playEpoch.current++; off() }
   }, [userId, householdId])
 
+  const washScope = useRef({ householdId, userId })
+  if (washScope.current.userId !== userId || washScope.current.householdId !== householdId) washScope.current = { householdId, userId }
+  const currentWashScope = washScope.current
+  const washEpoch = useRef(0), washMounted = useRef(true), washLock = useRef<symbol | null>(null)
+  const [washSaveBusy, setWashSaveBusy] = useState(false)
+  const [washSavePending, setWashSavePending] = useState(false)
+  const [washSaveIssue, setWashSaveIssue] = useState<{ userId: string; householdId: string; message: string } | null>(null)
+  useEffect(() => {
+    washMounted.current = true; washLock.current = null; setWashSaveBusy(false); setWashSaveIssue(null)
+    const sync = () => setWashSavePending(Boolean(userId && householdId && pendingWashSession(userId, householdId)))
+    sync()
+    const off = onForeground(sync)
+    return () => { washMounted.current = false; washEpoch.current++; off() }
+  }, [userId, householdId])
+
   useEffect(() => {
     setFoodActionRetry(userId && householdId ? pendingFoodAction(userId, householdId) : null)
   }, [userId, householdId])
@@ -582,6 +598,36 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     }
   }, [userId, householdId, currentPlayScope, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const finishWashSession = useCallback(async (recover = false): Promise<{ success: boolean; message: string }> => {
+    const generation = washEpoch.current
+    const active = () => washMounted.current && washEpoch.current === generation && washScope.current === currentWashScope
+    const failure = (reason?: string) => ({ success: false, message: washSessionError(reason) })
+    if (!userId || !householdId || !active()) return failure('session_changed')
+    if (statsRef.current?.household_id !== householdId) return failure('loading')
+    if (washLock.current) return failure('busy')
+    const token = Symbol('wash-session'); washLock.current = token; setWashSaveBusy(true); setWashSaveIssue(null)
+    try {
+      const response = await saveWashSession(supabase, userId, householdId, recover)
+      if (!active()) return failure('session_changed')
+      if (!response.ok) {
+        setWashSaveIssue({ userId, householdId, message: washSessionError(response.reason) })
+        if (response.reason === 'sleeping') void fetchStats()
+        return failure(response.reason)
+      }
+      const saved = response as WashSessionSave
+      statsRef.current = mergeWashStats(statsRef.current, saved.stats)
+      setStats(prev => mergeWashStats(prev, saved.stats))
+      window.dispatchEvent(new CustomEvent('eren:my-action', { detail: { household_id: householdId, user_id: userId, action_type: 'wash' } }))
+      return { success: true, message: 'Bath saved!' }
+    } catch {
+      if (active()) setWashSaveIssue({ userId, householdId, message: washSessionError() })
+      return failure()
+    } finally {
+      if (washLock.current === token) washLock.current = null
+      if (active()) { setWashSaveBusy(false); setWashSavePending(Boolean(pendingWashSession(userId, householdId))) }
+    }
+  }, [userId, householdId, currentWashScope, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const applyAction = useCallback(async (userId: string, action: ActionType): Promise<{ success: boolean; message: string }> => {
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
     const cfg = ACTION_CONFIGS[action]
@@ -797,6 +843,9 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     stats, loading, error, applyAction, feedWithFood,
     runFoodAction, foodActionBusy, foodActionRetry,
     finishPlaySession, playSaveBusy,
+    finishWashSession, washSaveBusy,
+    washSavePending: washSavePending && Boolean(userId && householdId && pendingWashSession(userId, householdId)),
+    washSaveError: washSaveIssue?.userId === userId && washSaveIssue?.householdId === householdId ? washSaveIssue.message : null,
     playSavePending: playSavePending && Boolean(userId && householdId && pendingPlaySession(userId, householdId)),
     playSaveError: playSaveIssue?.userId === userId && playSaveIssue?.householdId === householdId ? playSaveIssue.message : null,
     spendCoins, addCoins,

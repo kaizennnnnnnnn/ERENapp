@@ -20,9 +20,10 @@ assert.match(html('saving'), /Saving bath/)
 assert.match(html('saving'), /aria-busy="true"/)
 assert.doesNotMatch(html('saving') + html('error'), /Squeaky clean/)
 assert.match(html('error'), /Try again/)
+assert.match(html('recover'), /aria-label="Recover bath"/)
 assert.match(html('done'), /Squeaky clean!/)
 assert.match(html('sleeping'), /Sleeping/)
-for (const phase of ['soap', 'rinse', 'saving', 'error', 'done', 'sleeping']) {
+for (const phase of ['soap', 'rinse', 'saving', 'error', 'recover', 'done', 'sleeping']) {
   assert.doesNotMatch(html(phase), /font-pixel|linear-gradient|text-shadow/)
 }
 
@@ -49,17 +50,19 @@ const getPhase = new Function('env', `with (env) { return ${phaseExpression} }`)
 const ref = current => ({ current })
 let calls = 0, rewards = 0, reactions = 0, resolveSave
 const env = {
-  user: { id: 'tester' }, isSleeping: false, coverage: 0, showShower: false, done: false, saving: false, washSaved: false,
-  coverageRef: ref(0), showShowerRef: ref(false), doneRef: ref(false), savingRef: ref(false), savedRef: ref(false),
+  user: { id: 'tester' }, isSleeping: false, coverage: 0, showShower: false, done: false, saving: false, washSaved: false, washSaveBusy:false,washSavePending:false,
+  coverageRef: ref(0), showShowerRef: ref(false), doneRef: ref(false), savingRef: ref(null), savedRef: ref(false),
+  saveMounted:ref(true),saveEpoch:ref(0),saveScope:ref({}),
   dragSoapRef: ref(false), dragShowerRef: ref(false), soapPosRef: ref({}), showerPosRef: ref({}),
   soapRef: ref({ style: {} }), showerRef: ref({ style: {} }),
   sceneRef: ref({ getBoundingClientRect: () => ({ left: 100, top: 0, width: 360, height: 740 }) }),
   isOverEren: (x, y) => x > 200 && y > 400, markScrub() {}, useCallback: fn => fn,
   lastScrubWordRef: ref(0), bubbleId: ref(0), bubbles: [],
   playSound() {}, happyFinisherBeats: () => [], reaction: { play() { reactions++ } },
-  applyAction: () => { calls++; return new Promise(resolve => { resolveSave = resolve }) },
+  finishWashSession: () => { calls++; return new Promise(resolve => { resolveSave = resolve }) },
   completeTask() { rewards++ },
 }
+env.currentSaveScope=env.saveScope.current
 for (const field of ['Coverage', 'ShowShower', 'DragSoap', 'DragShower', 'ScrubWordKey', 'Bubbles', 'Done', 'Saving', 'SaveError', 'WashSaved', 'Scrubbing']) {
   const key = field[0].toLowerCase() + field.slice(1)
   env['set' + field] = value => { env[key] = typeof value === 'function' ? value(env[key]) : value }
@@ -119,9 +122,9 @@ async function main() {
 
   env.savedRef.current = false
   env.washSaved = false
-  env.applyAction = async () => { throw Error('network') }
+  env.finishWashSession = async () => { throw Error('network') }
   await api.finishWash()
-  assert.equal(env.savingRef.current, false)
+  assert.equal(env.savingRef.current, null)
   assert.equal(getPhase(env), 'error')
   env.isSleeping = true
   assert.equal(getPhase(env), 'sleeping')
