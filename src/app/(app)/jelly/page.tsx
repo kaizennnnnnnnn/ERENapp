@@ -25,7 +25,7 @@ import SkinUnlockCinematic from '@/components/care/SkinUnlockCinematic'
 
 export default function JellyParlourPage() {
   const router = useRouter()
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   const jellies = useJellies()
   const run = useJellyDuel('run')
@@ -36,6 +36,7 @@ export default function JellyParlourPage() {
   const [feedScene, setFeedScene] = useState<FeedResult | null>(null)
   // Queued behind it: the fifth feed earned the coat.
   const [unlocking, setUnlocking] = useState(false)
+  useEffect(() => { setFeedScene(null); setUnlocking(false) }, [user?.id, profile?.household_id])
 
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
 
@@ -72,6 +73,8 @@ export default function JellyParlourPage() {
         feedGoal={jellies.feedGoal}
         ownsSkin={jellies.ownsSkin}
         feeding={jellies.feeding}
+        feedPending={jellies.feedPending}
+        feedError={jellies.feedError}
         blocked={jellies.blocked}
         // Gate on the progress row AND the inventory: a tray drawn from an
         // unconfirmed fetch would show five empty slots to someone who filled

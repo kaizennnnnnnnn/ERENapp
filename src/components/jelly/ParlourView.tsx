@@ -27,6 +27,8 @@ interface Props {
   feedGoal: number
   ownsSkin: boolean
   feeding: boolean
+  feedPending?: boolean
+  feedError?: string | null
   loaded: boolean
   /** The Parlour's tables are missing; say so instead of showing an empty tray. */
   blocked: boolean
@@ -38,7 +40,7 @@ interface Props {
 }
 
 export default function ParlourView({
-  tray, trayCount, traySize, supers, fed, feedGoal, ownsSkin, feeding, loaded, blocked,
+  tray, trayCount, traySize, supers, fed, feedGoal, ownsSkin, feeding, feedPending, feedError, loaded, blocked,
   games, onPlay, onFeed, onOpenCloset, onBack,
 }: Props) {
   return (
@@ -63,7 +65,7 @@ export default function ParlourView({
       <ParlourTray
         tray={tray} count={trayCount} size={traySize}
         supers={supers} fed={fed} goal={feedGoal} ownsSkin={ownsSkin}
-        busy={feeding} loading={!loaded} onFeed={onFeed} onOpenCloset={onOpenCloset} />
+        busy={feeding} loading={!loaded} feedPending={feedPending} feedError={feedError} onFeed={onFeed} onOpenCloset={onOpenCloset} />
 
       <ParlourMenu games={games} loaded={loaded} onPlay={onPlay} />
     </MeadowPage>

@@ -30,6 +30,8 @@ interface Props {
   goal: number
   ownsSkin: boolean
   busy: boolean
+  feedPending?: boolean
+  feedError?: string | null
   /** Ownership is still being confirmed — draw the arch, not a wrong answer. */
   loading: boolean
   onFeed: () => void
@@ -48,7 +50,7 @@ const ARCH_H = 186
 const SLOT = 56
 
 const ParlourTray = memo(function ParlourTray({
-  tray, count, size, supers, fed, goal, ownsSkin, busy, loading, onFeed, onOpenCloset,
+  tray, count, size, supers, fed, goal, ownsSkin, busy, loading, feedPending = false, feedError = null, onFeed, onOpenCloset,
 }: Props) {
   const cat = useCat()
   const holding = supers > 0
@@ -125,33 +127,37 @@ const ParlourTray = memo(function ParlourTray({
       {/* ── What it means right now ── */}
       <div style={{ marginTop: 12, textAlign: 'center' }}>
         <p style={{ margin: 0, fontSize: 19, lineHeight: 1.25, fontWeight: 800 }}>
-          {ownsSkin ? cat.t('The jelly coat is {his}')
+          {feedPending ? 'Your Super Jelly feed needs confirmation'
+            : ownsSkin ? cat.t('The jelly coat is {his}')
             : holding ? (supers > 1 ? `${supers} Super Jellies are ready` : 'A Super Jelly is ready')
               : full ? 'Tray complete'
                 : 'Win five for a Super Jelly'}
         </p>
         <p style={{ margin: '4px 0 0', fontSize: 14, lineHeight: 1.4, fontWeight: 500, color: M.text2 }}>
-          {ownsSkin ? cat.t('{He} ate five Super Jellies. The coat is in the closet.')
+          {feedPending ? 'The feed is saved for recovery, even if the stand is empty.'
+            : ownsSkin ? cat.t('{He} ate five Super Jellies. The coat is in the closet.')
             : holding ? cat.t('A whole day of jelly in one mould. Feed it to {him}.')
               : 'Win a round to light a jelly. The tray empties every night.'}
         </p>
       </div>
 
-      {(holding || ownsSkin) && (
+      {(holding || ownsSkin || feedPending) && (
         <div style={{ marginTop: 14 }}>
-          {ownsSkin ? (
+          {ownsSkin && !feedPending ? (
             <SecondaryButton size="lg" icon={<MeadowIcon name="dress" size={20} />}
               onClick={() => { playSound('ui_select'); onOpenCloset() }}>
               Wear it
             </SecondaryButton>
           ) : (
-            <PrimaryButton busy={busy} icon={<MeadowIcon name="sparkle" size={20} color="#FFFFFF" mono />}
+            <PrimaryButton busy={busy} disabled={loading && !feedPending} ariaLabel={feedPending ? 'Recover Super Jelly feed' : undefined}
+              icon={<MeadowIcon name={feedPending || feedError ? 'replay' : 'sparkle'} size={20} color="#FFFFFF" mono />}
               onClick={() => { playSound('ui_select'); onFeed() }}>
-              {busy ? 'Feeding...' : cat.t('Feed {name}')}
+              {busy ? 'Confirming...' : feedPending || feedError ? 'Retry feed' : cat.t('Feed {name}')}
             </PrimaryButton>
           )}
         </div>
       )}
+      {feedError && <p role="alert" style={{ margin: '12px 0 0', fontSize: 13, lineHeight: 1.45, color: M.danger }}>{feedError}</p>}
 
       {/* ── The road to the coat: one step per feed ── */}
       {!ownsSkin && (

@@ -16,6 +16,7 @@ import { useCare } from './CareContext'
 import { readRewardNews, markRewardNewsSeen, rewardNewsKey, REWARD_NEWS_CHANGED, type RewardNewsTarget } from '@/lib/rewardNews'
 import { readKioskNight, validKioskNight, nightRemaining, kioskNotice, pendingKioskBonuses, type KioskNight } from '@/lib/kioskNights'
 import { pendingKioskSaves } from '@/lib/kioskSaves'
+import { pendingSuperJellyFeeds } from '@/lib/superJellySaves'
 
 export interface RewardAlerts {
   places: Partial<Record<'/gacha' | '/bakery' | '/jelly' | '/shawarma', string>>
@@ -37,7 +38,7 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
   const [now, setNow] = useState(0)
   const [rows, setRows] = useState<{ owner: string; gacha: Record<string, unknown> | null; supers: number; weekly: number } | null>(null)
   const [kiosk, setKiosk] = useState<KioskNight | null>(null)
-  const [local, setLocal] = useState<{ owner: string; home: string | null; newGames: GameType[]; pending: number; kioskSaves: number; kioskBonuses: number; news: RewardAlerts['news'] } | null>(null)
+  const [local, setLocal] = useState<{ owner: string; home: string | null; newGames: GameType[]; pending: number; kioskSaves: number; kioskBonuses: number; jellyFeeds: number; news: RewardAlerts['news'] } | null>(null)
   const seen = useRef<{ owner: string; ids: Set<string> } | null>(null)
   const current = useRef(user?.id); current.current = user?.id
   const currentHome = useRef(home); currentHome.current = home
@@ -104,6 +105,7 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
       const news = readRewardNews(actor)
       setLocal({ owner: actor, home, newGames: unseenGames(seen.current.ids), pending: home ? pendingGameSaves(actor, home).length : 0,
         kioskSaves: home ? pendingKioskSaves(actor, home).length : 0, kioskBonuses: home ? pendingKioskBonuses(actor, home).length : 0,
+        jellyFeeds: home ? pendingSuperJellyFeeds(actor, home).length : 0,
         news: Object.fromEntries(Object.entries(news).map(([target, group]) => [target, group.unread.length > 0])) })
     }
     const sync = () => { if (!dead) { syncLocal(); void refresh() } }
@@ -135,6 +137,7 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
     if (free || tickets) places['/gacha'] = free ? 'A free food pull is ready' : 'Gacha tickets are ready to use'
   }
   if (known && known.supers > 0) places['/jelly'] = `${known.supers} Super ${known.supers === 1 ? 'Jelly is' : 'Jellies are'} ready`
+  if (localKnown?.jellyFeeds) places['/jelly'] = 'A Super Jelly feed needs confirmation'
   const kioskNight = kiosk?.user_id === user?.id && kiosk?.household_id === home ? kiosk : null
   const energy = !statsLoading && stats?.household_id === home && typeof stats.energy === 'number' ? stats.energy : null
   const kioskAlert = kioskNotice(kioskNight, energy, localKnown?.kioskSaves ?? 0, localKnown?.kioskBonuses ?? 0, Boolean(localKnown?.news.kiosk))
