@@ -70,16 +70,15 @@
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
 import { useCare } from '@/contexts/CareContext'
-import { useErenStats } from '@/hooks/useErenStats'
-import { useTasks } from '@/contexts/TaskContext'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useCat } from '@/hooks/useCat'
-import { useJellies, type JellyWin } from '@/hooks/useJellies'
+import { useJellyRound } from '@/hooks/useJellyRound'
+import { JELLY_THRESHOLDS } from '@/lib/jellies'
+import JellyRoundRecovery from '@/components/jelly/JellyRoundRecovery'
 import { useJellyDuel } from '@/hooks/useJellyDuel'
 import { JELLIES, type JellyDef } from '@/lib/jellies'
-import JellyPrize, { type DuelLine } from '@/components/jelly/JellyPrize'
+import JellyPrize from '@/components/jelly/JellyPrize'
 import { JumpWallLayer, JumpDepth, JumpCeiling, TILE } from '@/components/jelly/JumpScenery'
 import { ZONES, ZONE_M, ZONE_FADE_M } from '@/components/jelly/jumpZones'
 import { Platform, Sugar, PLAT_W, PLAT_H, SUGAR_SIZE, CROWN, CROWNED, type PlatKind } from '@/components/jelly/JumpPlatform'
@@ -159,7 +158,7 @@ const RACK_WARN = 700
  * Height that earns a jelly. One hop is ~14–19 M, so this is about fifteen
  * clean ones — a real run, but reachable on an ordinary day.
  */
-const THRESHOLD = 240
+const THRESHOLD = JELLY_THRESHOLDS.jump
 /** Height (px) per point — a run reads in hundreds, not tens of thousands. */
 const PX_PER_M = 8
 /** Metres after which the director is at full strength. */
@@ -451,12 +450,10 @@ export default function JellyJumpPage() {
   const router = useRouter()
   // `cat` is the physics body below; this is the household's cat, for the copy.
   const theCat = useCat()
-  const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask } = useTasks()
   const reduced = useReducedMotion()
-  const jellies = useJellies()
+  const round = useJellyRound('jump')
+  const result = round.result
   const duel = useJellyDuel('jump')
 
   const [phase, setPhase] = useState<'ready' | 'play' | 'over'>('ready')
@@ -471,9 +468,6 @@ export default function JellyJumpPage() {
   const [brokeBest, setBrokeBest] = useState(false)
   const [pose, setPose] = useState<ErenPose>('idle')
   const [banner, setBanner] = useState<string | null>(null)
-  const [wins, setWins] = useState<JellyWin[]>([])
-  const [awardFailed, setAwardFailed] = useState(false)
-  const [result, setResult] = useState<{ isBest: boolean; duel: DuelLine } | null>(null)
 
   const fieldRef = useRef<HTMLDivElement | null>(null)
   const erenRef = useRef<HTMLDivElement | null>(null)
@@ -584,29 +578,8 @@ export default function JellyJumpPage() {
     playSound('jl_over')
 
     const final = heightRef.current
-    const submitted = await duel.submit(final)
-    const won: JellyWin[] = []
-    if (final >= THRESHOLD) {
-      const w = await jellies.awardJelly()
-      if (w) won.push(w)
-      if (submitted.bonusJelly) {
-        const b = await jellies.awardJelly()
-        if (b) won.push(b)
-      }
-    }
-    setWins(won)
-    // Cleared the bar but came back empty-handed: the write failed, and the
-    // card must say that rather than quote a threshold the player already beat.
-    setAwardFailed(final >= THRESHOLD && won.length === 0)
-    setResult({
-      isBest: submitted.isBest,
-      duel: { theirName: duel.theirName, theirsToday: duel.theirsToday, tookLead: submitted.tookLead },
-    })
-    if (final > 0 && user?.id) {
-      completeTask('daily_game')
-      void applyAction(user.id, 'play')
-    }
-  }, [duel, jellies, user?.id, completeTask, applyAction])
+    await round.finish(final)
+  }, [round.finish])
 
   /**
    * The loop must NOT depend on endRound.
@@ -1574,6 +1547,7 @@ export default function JellyJumpPage() {
   }, [phase])
 
   const start = useCallback(() => {
+    if (!round.clear()) return
     const field = fieldRef.current
     const W = field?.clientWidth ?? 360
     const H = field?.clientHeight ?? 640
@@ -1635,11 +1609,11 @@ export default function JellyJumpPage() {
     setZoneIdx(0); setCeilIdx(0); setCeilBroken(false)
     // Or Play Again renders both marks already shattered from frame one.
     setBrokeTheirs(false); setBrokeBest(false)
-    setBanner(null); setWins([]); setAwardFailed(false); setResult(null)
+    setBanner(null)
     setPose('idle')
     phaseRef.current = 'play'
     setPhase('play')
-  }, [addPlat])
+  }, [addPlat, round.clear])
 
   useEffect(() => () => {
     if (poseTimer.current) window.clearTimeout(poseTimer.current)
@@ -1939,11 +1913,13 @@ export default function JellyJumpPage() {
       )}
 
       {/* ── Results ── */}
-      {phase === 'over' && result && (
+      {(round.saving || (round.pending > 0 && !result) || round.error) && <JellyRoundRecovery saving={round.saving} error={round.error}
+        onRetry={() => { void round.retry() }} onExit={() => router.push('/jelly')} />}
+      {result && (
         <JellyPrize
-          score={height} best={Math.max(duel.best, height)} isBest={result.isBest}
-          unit="M" threshold={THRESHOLD} duel={result.duel} wins={wins} awardFailed={awardFailed}
-          trayCount={jellies.trayCount} traySize={jellies.traySize}
+          score={result.score} best={result.best} isBest={result.is_best}
+          unit="M" threshold={THRESHOLD} duel={{ theirName: result.their_name, theirsToday: result.theirs_today, tookLead: result.took_lead }} wins={result.prizes} awardFailed={false}
+          trayCount={result.trayCount} traySize={5}
           onPlayAgain={start}
           onExit={() => router.push('/jelly')}
         />

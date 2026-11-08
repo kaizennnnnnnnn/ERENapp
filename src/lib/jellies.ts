@@ -17,11 +17,8 @@ import type { MonstaBuff } from './monstaBuffs'
 // supabase/migration_jelly_progress.sql) and the server decides every
 // transition.
 //
-// Effects reuse MonstaBuff rather than inventing a second stat-delta shape:
-// useErenStats.feedWithFood already applies exactly these fields, and calling
-// it with zero hunger/joy/weight makes it a pure buff channel. Coins are the
-// one field it can't write (they live on profiles), so the caller pays those
-// through TaskContext the same way the kitchen does for a Monsta.
+// Effects reuse MonstaBuff. The generated round catalogue keeps the server's
+// atomic payout in step with these definitions; the client never pays them.
 //
 // Effect budget: nothing here is bigger than a can's perk (~35 of a stat, 60
 // coins). A jelly is a treat for playing, not a way to skip caring for him.
@@ -29,6 +26,8 @@ import type { MonstaBuff } from './monstaBuffs'
 // ════════════════════════════════════════════════════════════════════════════
 
 export type JellyId = 'red' | 'green' | 'purple' | 'yellow' | 'orange'
+export type JellyGame = 'run' | 'jump'
+export const JELLY_THRESHOLDS: Record<JellyGame, number> = { run: 220, jump: 240 }
 
 export interface JellyEffect {
   /** Short line for the prize card — reads as flavour, not as a stat table.
@@ -104,8 +103,7 @@ export const getJelly = (id: string): JellyDef | undefined => BY_ID[id]
 
 // ─── The Super Jelly ────────────────────────────────────────────────────
 // What a full tray becomes. It isn't a sixth flavour — it's all five at once,
-// which is why the art is the five real jellies banded together rather than a
-// new drawing (see components/jelly/SuperJelly).
+// represented by one rainbow-layer star pudding (components/jelly/SuperJelly).
 
 /** Flavours needed in one day to mint a Super Jelly. */
 export const TRAY_SIZE = JELLY_COUNT
@@ -144,15 +142,15 @@ export const JELLY_SKIN_ID = 'jelly'
  * uniform roll turns the fifth slot into a long grind (coupon-collector: the
  * last one takes five times as many wins as the first) — and a tray that
  * usually can't be finished in a day makes the whole daily loop pointless.
- * `NEW_BIAS` is the chance of drawing from the empty slots when any remain:
+ * `JELLY_NEW_BIAS` is the chance of drawing from the empty slots when any remain:
  * high enough that a good session finishes the tray, low enough that a repeat
  * still happens and still pays its effect.
  */
-const NEW_BIAS = 0.7
+export const JELLY_NEW_BIAS = 0.7
 
 export function rollJelly(filledToday: ReadonlySet<string>, rnd: () => number = Math.random): JellyDef {
   const empty = JELLIES.filter(j => !filledToday.has(j.id))
-  const pool = empty.length > 0 && rnd() < NEW_BIAS ? empty : JELLIES
+  const pool = empty.length > 0 && rnd() < JELLY_NEW_BIAS ? empty : JELLIES
   return pool[Math.floor(rnd() * pool.length)]
 }
 

@@ -94,14 +94,13 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
 import { useCare } from '@/contexts/CareContext'
-import { useErenStats } from '@/hooks/useErenStats'
-import { useTasks } from '@/contexts/TaskContext'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
-import { useJellies, type JellyWin } from '@/hooks/useJellies'
+import { useJellyRound } from '@/hooks/useJellyRound'
+import { JELLY_THRESHOLDS } from '@/lib/jellies'
+import JellyRoundRecovery from '@/components/jelly/JellyRoundRecovery'
 import { useJellyDuel } from '@/hooks/useJellyDuel'
-import JellyPrize, { type DuelLine } from '@/components/jelly/JellyPrize'
+import JellyPrize from '@/components/jelly/JellyPrize'
 import {
   BackWall, WallShelf, CeilingLamp, FloorTile, Road, Crate, Pipe, Burner, Spill, Cart, Vent,
   Glider, Tide, Bead, Gem, ShieldPickup, TILE,
@@ -397,7 +396,7 @@ const DASH_MULT = 1.6
 const COLS_AHEAD = 26
 const SWIPE_PX = 34           // finger travel that counts as a swipe
 
-const THRESHOLD = 220         // metres that earn a jelly
+const THRESHOLD = JELLY_THRESHOLDS.run
 
 const BEAD_COLORS = ['#F472B6', '#FBBF24', '#5BE81E', '#60A5FA', '#C084FC']
 
@@ -544,12 +543,10 @@ const N_LAMP = 4
 
 export default function JellyRunPage() {
   const router = useRouter()
-  const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask } = useTasks()
   const reduced = useReducedMotion()
-  const jellies = useJellies()
+  const round = useJellyRound('run')
+  const result = round.result
   const duel = useJellyDuel('run')
 
   const [phase, setPhase] = useState<'ready' | 'play' | 'over'>('ready')
@@ -569,9 +566,6 @@ export default function JellyRunPage() {
   /** The cream bubble. One free hit, and it has to be visible to be worth it. */
   const [shielded, setShielded] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
-  const [wins, setWins] = useState<JellyWin[]>([])
-  const [awardFailed, setAwardFailed] = useState(false)
-  const [result, setResult] = useState<{ isBest: boolean; duel: DuelLine } | null>(null)
 
   // ── Stage ────────────────────────────────────────────────────────────────
   const stageRef = useRef<HTMLDivElement>(null)
@@ -1254,15 +1248,16 @@ export default function JellyRunPage() {
 
   // ── Start ────────────────────────────────────────────────────────────────
   const start = useCallback(() => {
+    if (!round.clear()) return
     measure()
     seed()
     savedRef.current = false
     setMetres(0); setBeads(0); setPower(0)
-    setResult(null); setWins([]); setAwardFailed(false); setBanner(null)
+    setBanner(null)
     setPose('run')
     phaseRef.current = 'play'
     setPhase('play')
-  }, [measure, seed])
+  }, [measure, seed, round.clear])
 
   // ── End ──────────────────────────────────────────────────────────────────
   const endRun = useCallback(async () => {
@@ -1274,27 +1269,8 @@ export default function JellyRunPage() {
     playSound('jl_over')
 
     const final = metresRef.current
-    const submitted = await duel.submit(final)
-    const won: JellyWin[] = []
-    if (final >= THRESHOLD) {
-      const w = await jellies.awardJelly()
-      if (w) won.push(w)
-      if (submitted.bonusJelly) {
-        const b = await jellies.awardJelly()
-        if (b) won.push(b)
-      }
-    }
-    setWins(won)
-    setAwardFailed(final >= THRESHOLD && won.length === 0)
-    setResult({
-      isBest: submitted.isBest,
-      duel: { theirName: duel.theirName, theirsToday: duel.theirsToday, tookLead: submitted.tookLead },
-    })
-    if (final > 0 && user?.id) {
-      completeTask('daily_game')
-      void applyAction(user.id, 'play')
-    }
-  }, [duel, jellies, user?.id, completeTask, applyAction])
+    await round.finish(final)
+  }, [round.finish])
 
   // The loop must not depend on endRun: it closes over `jellies` and `duel`,
   // which are new objects every render, so listing it would tear the rAF loop
@@ -2052,11 +2028,13 @@ export default function JellyRunPage() {
       )}
 
       {/* ── Results ── */}
-      {phase === 'over' && result && (
+      {(round.saving || (round.pending > 0 && !result) || round.error) && <JellyRoundRecovery saving={round.saving} error={round.error}
+        onRetry={() => { void round.retry() }} onExit={() => router.push('/jelly')} />}
+      {result && (
         <JellyPrize
-          score={metres} best={Math.max(duel.best, metres)} isBest={result.isBest}
-          unit="M" threshold={THRESHOLD} duel={result.duel} wins={wins} awardFailed={awardFailed}
-          trayCount={jellies.trayCount} traySize={jellies.traySize}
+          score={result.score} best={result.best} isBest={result.is_best}
+          unit="M" threshold={THRESHOLD} duel={{ theirName: result.their_name, theirsToday: result.theirs_today, tookLead: result.took_lead }} wins={result.prizes} awardFailed={false}
+          trayCount={result.trayCount} traySize={5}
           onPlayAgain={start}
           onExit={() => router.push('/jelly')}
         />

@@ -15,10 +15,12 @@ import ParlourMenu, { type ParlourGame } from './ParlourMenu'
 import type { JellyDef } from '@/lib/jellies'
 import { playSound } from '@/lib/sounds'
 import { M, MeadowIcon, MeadowPage } from '@/components/meadow'
+import type { ReactNode } from 'react'
 
 export type { ParlourGame }
 
 interface Props {
+  recovery?: ReactNode
   tray: { jelly: JellyDef; filled: boolean }[]
   trayCount: number
   traySize: number
@@ -40,7 +42,7 @@ interface Props {
 }
 
 export default function ParlourView({
-  tray, trayCount, traySize, supers, fed, feedGoal, ownsSkin, feeding, feedPending, feedError, loaded, blocked,
+  tray, trayCount, traySize, supers, fed, feedGoal, ownsSkin, feeding, feedPending, feedError, loaded, blocked, recovery,
   games, onPlay, onFeed, onOpenCloset, onBack,
 }: Props) {
   return (
@@ -62,6 +64,7 @@ export default function ParlourView({
         </div>
       )}
 
+      {recovery}
       <ParlourTray
         tray={tray} count={trayCount} size={traySize}
         supers={supers} fed={fed} goal={feedGoal} ownsSkin={ownsSkin}

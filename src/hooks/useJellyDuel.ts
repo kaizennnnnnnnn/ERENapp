@@ -1,128 +1,42 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
+import { JELLY_ROUND_SAVED_EVENT } from '@/lib/jellyRoundSaves'
+import type { JellyGame } from '@/lib/jellies'
 import { useAuth } from './useAuth'
 
-// ─── useJellyDuel ───────────────────────────────────────────────────────────
-// The competitive half of the Jelly Parlour: your all-time best, and today's
-// head-to-head against your partner.
-//
-// Both facts are queries over jelly_scores rather than stored counters, so a
-// best score can never disagree with the run that produced it.
-//
-// Taking today's lead earns a bonus jelly. That's decided by an INSERT into
-// jelly_duel_leads, not by a read: the primary key (household, user, game, day)
-// means the row either lands — you hadn't claimed today's bonus yet — or it
-// doesn't. No read-then-write race, and no way to farm it by trading the lead
-// back and forth all evening, because your second lead of the day hits the same
-// key. She can still earn hers by taking it back, which is the point.
+export type { JellyGame } from '@/lib/jellies'
+export interface DuelState { best: number; mineToday: number; theirsToday: number; theirName: string | null; loaded: boolean }
+const EMPTY: DuelState = { best: 0, mineToday: 0, theirsToday: 0, theirName: null, loaded: false }
 
-export type JellyGame = 'run' | 'jump'
-const UNIQUE_VIOLATION = '23505'
-
-/** UTC day string, matching the table's `day` default so both agree at midnight. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-export interface DuelState {
-  /** Your best score ever in this game. */
-  best: number
-  /** Your best today — what her score has to beat. */
-  mineToday: number
-  /** Her best today, and who she is. 0 when she hasn't played yet. */
-  theirsToday: number
-  theirName: string | null
-  loaded: boolean
-}
-
-export interface SubmitResult {
-  /** A new all-time personal best. */
-  isBest: boolean
-  /** This run put you ahead of her for today. */
-  tookLead: boolean
-  /** ...and it was your first lead today, so a bonus jelly is owed. */
-  bonusJelly: boolean
-}
-
+// Read-only. The round RPC owns the score and once-a-day bonus decision.
 export function useJellyDuel(game: JellyGame) {
-  const supabase = createClient()
-  const { user, profile } = useAuth()
-  const householdId = profile?.household_id ?? null
-  const [state, setState] = useState<DuelState>({
-    best: 0, mineToday: 0, theirsToday: 0, theirName: null, loaded: false,
-  })
-
+  const { user, profile } = useAuth(), actor = user?.id, home = profile?.household_id
+  const [stored, setStored] = useState<{ actor: string; home: string; game: JellyGame; data: DuelState } | null>(null)
+  const scope = useRef({ actor, home, game }); scope.current = { actor, home, game }
+  const version = useRef(0), mounted = useRef(true)
   const load = useCallback(async () => {
-    if (!user?.id || !householdId) return
-    const day = today()
-
+    if (!actor || !home) return
+    const read = ++version.current, db = createClient(), day = new Date().toISOString().slice(0, 10)
     const [mine, todays] = await Promise.all([
-      withRetry(() => supabase
-        .from('jelly_scores').select('score')
-        .eq('user_id', user.id).eq('game', game)
-        .order('score', { ascending: false }).limit(1)),
-      withRetry(() => supabase
-        .from('jelly_scores').select('user_id, score, profiles:user_id(name)')
-        .eq('household_id', householdId).eq('game', game).eq('day', day)
-        .order('score', { ascending: false })),
+      withRetry(() => db.from('jelly_scores').select('score').eq('household_id', home).eq('user_id', actor).eq('game', game).order('score', { ascending: false }).limit(1)),
+      withRetry(() => db.from('jelly_scores').select('user_id, score, profiles:user_id(name)').eq('household_id', home).eq('game', game).eq('day', day).order('score', { ascending: false })),
     ])
-    // An outage must not read as "no scores" — that would show a 0 best and
-    // hand out a bonus jelly for beating a partner score we simply couldn't see.
-    if (mine.error || todays.error) return
-
+    if (!mounted.current || read !== version.current || scope.current.actor !== actor || scope.current.home !== home || scope.current.game !== game || mine.error || todays.error) return
     const rows = (todays.data ?? []) as { user_id: string; score: number; profiles: { name: string } | null }[]
-    const mineRows = rows.filter(r => r.user_id === user.id)
-    const theirRows = rows.filter(r => r.user_id !== user.id)
-    setState({
-      best: mine.data?.[0]?.score ?? 0,
-      mineToday: mineRows.length ? Math.max(...mineRows.map(r => r.score)) : 0,
-      theirsToday: theirRows.length ? Math.max(...theirRows.map(r => r.score)) : 0,
-      theirName: theirRows[0]?.profiles?.name ?? null,
-      loaded: true,
-    })
-  }, [user?.id, householdId, game]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { void load() }, [load])
-  // Self-heal after an outage that outlasted withRetry's backoff.
+    const mineRows = rows.filter(r => r.user_id === actor), theirs = rows.filter(r => r.user_id !== actor)
+    setStored({ actor, home, game, data: { best: mine.data?.[0]?.score ?? 0, mineToday: mineRows.length ? Math.max(...mineRows.map(r => r.score)) : 0,
+      theirsToday: theirs.length ? Math.max(...theirs.map(r => r.score)) : 0, theirName: theirs[0]?.profiles?.name ?? null, loaded: true } })
+  }, [actor, home, game])
   useEffect(() => {
-    if (state.loaded) return
-    return onForeground(() => { void load() })
-  }, [state.loaded, load])
-
-  const submit = useCallback(async (score: number): Promise<SubmitResult> => {
-    const none: SubmitResult = { isBest: false, tookLead: false, bonusJelly: false }
-    if (!user?.id || !householdId || score <= 0) return none
-
-    const { error } = await supabase.from('jelly_scores')
-      .insert({ household_id: householdId, user_id: user.id, game, score })
-    if (error) return none
-
-    const isBest = score > state.best
-    // Only a CONFIRMED board counts: with `loaded` false we never saw her
-    // score, and "beating" an unknown 0 would mint a bonus jelly for nothing.
-    const tookLead = state.loaded && score > state.theirsToday && state.theirsToday > 0
-
-    let bonusJelly = false
-    if (tookLead) {
-      const { error: leadErr } = await supabase.from('jelly_duel_leads')
-        .insert({ household_id: householdId, user_id: user.id, game, day: today() })
-      // Key violation = today's bonus is already yours. Anything else is a real
-      // failure, and an unearned jelly is worse than a missed one.
-      bonusJelly = !leadErr
-      if (leadErr && leadErr.code !== UNIQUE_VIOLATION) bonusJelly = false
-    }
-
-    setState(s => ({
-      ...s,
-      best: Math.max(s.best, score),
-      mineToday: Math.max(s.mineToday, score),
-    }))
-    return { isBest, tookLead, bonusJelly }
-  }, [user?.id, householdId, game, state.best, state.theirsToday, state.loaded, supabase])
-
-  return { ...state, submit, reload: load }
+    mounted.current = true; void load()
+    const off = onForeground(() => { void load() })
+    const changed = (event: Event) => { const d = (event as CustomEvent).detail; if (d?.user_id === actor && d?.household_id === home && d?.game === game) void load() }
+    window.addEventListener(JELLY_ROUND_SAVED_EVENT, changed)
+    return () => { mounted.current = false; version.current++; off(); window.removeEventListener(JELLY_ROUND_SAVED_EVENT, changed) }
+  }, [actor, home, game, load])
+  return { ...(stored?.actor === actor && stored?.home === home && stored?.game === game ? stored.data : EMPTY), reload: load }
 }

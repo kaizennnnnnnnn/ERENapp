@@ -148,7 +148,7 @@ export default function JellyPrize({
           }}>
             <SuperJelly size={38} />
             <p style={{ fontSize: 10, lineHeight: 1.4, color: '#5A3208' }}>
-              <strong>Tray complete!</strong> A Super Jelly is waiting in your kitchen fridge for {cat.name}.
+              <strong>Tray complete!</strong> A Super Jelly was added to your kitchen fridge for {cat.name}.
             </p>
           </div>
         )}
@@ -176,8 +176,8 @@ export default function JellyPrize({
           }}>
             <p className="text-center" style={{ fontSize: 9.5, lineHeight: 1.45, color: INK }}>
               {duel.tookLead
-                ? <>You&apos;re ahead of <strong>{duel.theirName}</strong> today.</>
-                : <><strong>{duel.theirName}</strong> leads today with {duel.theirsToday}. Beat it for a bonus jelly.</>}
+                ? <>This round beat <strong>{duel.theirName}</strong>&apos;s {duel.theirsToday}.</>
+                : <><strong>{duel.theirName}</strong> scored {duel.theirsToday}.</>}
             </p>
           </div>
         )}

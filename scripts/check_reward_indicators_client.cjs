@@ -214,5 +214,11 @@ test('an unconfirmed Super Jelly feed stays marked with zero stock and is househ
   for(const fn of h.foreground)fn();let v=await h.settle();assert.match(v.places['/jelly'],/feed needs confirmation/)
   h.state.home='another-home';v=await h.settle();assert.equal(v.places['/jelly'],undefined);h.unmount()
 })
+test('an unconfirmed Jelly round keeps the Parlour marked, independently of stock and account',async()=>{
+  const h=fixture();await h.settle()
+  h.journal.prepareSavedRpc(USER,'finish_jelly_round_atomic',HOME+':run:one',{p_expected_user:USER,p_household_id:HOME,p_game:'run',p_score:300})
+  for(const fn of h.foreground)fn();let v=await h.settle();assert.match(v.places['/jelly'],/round needs confirmation/)
+  h.state.home='another-home';v=await h.settle();assert.equal(v.places['/jelly'],undefined);h.unmount()
+})
 ;(async()=>{for(const{name,run}of tests){await run();console.log('PASS '+name)}console.log('Reward indicators: '+tests.length+'/'+tests.length+' client scenarios passed')})()
   .catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{for(const f of fixtures)f.unmount()})
