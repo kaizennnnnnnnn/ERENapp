@@ -13,7 +13,7 @@ function hooks(){const states=[],refs=[],effects=[],memos=[],callbacks=[];let si
 }
 function fixture(options={}){
   const react=hooks(),storage=options.storage??new Map(),receipts=options.receipts??new Map(),jobs=new Set(),calls=[],events=[],foreground=new Set()
-  const state={actor:USER,home:HOME,coins:10,supers:1,fed:4,skin:false,mode:'ok',hold:null,readHold:null,readError:false,buffs:0,credits:0,inventoryReads:0,statReads:0,private:false,...options.state}
+  const state={actor:USER,home:HOME,coins:10,supers:1,fed:4,skin:false,mode:'ok',hold:null,readHold:null,readError:false,buffs:0,credits:0,inventoryReads:0,statReads:0,private:false,snacks:false,gifts:0,...options.state}
   global.sessionStorage={get length(){return storage.size},key:i=>[...storage.keys()][i],getItem:k=>storage.get(k)??null,setItem:(k,v)=>{if(state.private)throw Error('blocked');storage.set(k,v)},removeItem:k=>storage.delete(k)}
   global.CustomEvent=class{constructor(type,{detail}={}){this.type=type;this.detail=detail}}
   global.window={dispatchEvent:event=>{events.push(event);return true}}
@@ -29,11 +29,14 @@ function fixture(options={}){
           state.supers--;state.fed++;state.coins+=120;const granted=state.fed>=5&&!state.skin;state.skin||=granted
           receipt={args:clone(args),data:{ok:true,version:1,request_id:args.p_request_id,user_id:args.p_expected_user,household_id:args.p_household_id,
             coins:state.coins,awarded:120,supers:state.supers,fed:state.fed,skin_granted:granted,saved_at:new Date().toISOString()}};receipts.set(args.p_request_id,receipt)
+          if(state.snacks){receipt.data.version=2;receipt.data.snack={food_key:'donut_sakura',quantity:1};state.gifts++}
         }else assert.deepEqual(receipt.args,args)
         if(state.hold)await state.hold.promise
         if(state.mode==='lost')return{data:null,error:{message:'lost response'}}
         const data={...clone(receipt.data),coins:state.coins,current_supers:state.supers,current_fed:state.fed}
         if(state.mode==='malformed')data.request_id='other'
+        if(state.mode==='bad-snack')data.snack={food_key:'skin_jelly',quantity:1}
+        if(state.mode==='bad-quantity')data.snack.quantity=2
         return{data,error:null}
       }}}
   }
@@ -91,5 +94,14 @@ test('progress reads and unread retry state stay scoped, including late reads an
 test('Strict Mode cleanup never spends a feed automatically or loses a recoverable intent',async()=>{
   const h=fixture({state:{mode:'lost'}});let v=await h.settle();await v.feedSuper();await h.settle();const count=h.calls.length
   h.react.strictReplay();v=await h.settle();assert.equal(h.calls.length,count);assert.equal(v.feedPending,true);h.unmount()
+})
+test('snack receipts recover the same saved gift once after a lost reply and reload',async()=>{
+  let h=fixture({state:{snacks:true,mode:'lost'}}),v=await h.settle();await v.feedSuper();v=await h.settle();assert.equal(v.feedPending,true);assert.equal(h.state.gifts,1)
+  const storage=h.storage,receipts=h.receipts,state={...h.state,mode:'ok'};h.unmount();h=fixture({storage,receipts,state});v=await h.settle()
+  const result=await v.feedSuper();await h.settle();assert.deepEqual(result.snack,{food_key:'donut_sakura',quantity:1});assert.equal(h.state.gifts,1);assert.equal(h.receipts.size,1);h.unmount()
+})
+test('unrecognized snacks and quantities cannot produce an unconfirmed gift reveal',async()=>{
+  for(const mode of ['bad-snack','bad-quantity']){const h=fixture({state:{snacks:true,mode}});let v=await h.settle();const result=await v.feedSuper();v=await h.settle();assert.equal(result.ok,false);assert.equal(result.snack,undefined);assert.equal(v.feedPending,true)
+    h.state.mode='ok';const retry=await v.feedSuper();await h.settle();assert.equal(retry.ok,true);assert.equal(retry.snack.quantity,1);assert.equal(h.state.gifts,1);h.unmount()}
 })
 ;(async()=>{for(const{name,run}of tests){await run();console.log('PASS '+name)}console.log(`Super Jelly client: ${tests.length}/${tests.length} passed (actual hook and request journal).`)})().catch(error=>{console.error(error);process.exitCode=1})

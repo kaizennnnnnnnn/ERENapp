@@ -1,209 +1,92 @@
 'use client'
 
-// ─── SuperJellyFeed ─────────────────────────────────────────────────────────
-// Feeding Eren the day's Super Jelly.
-//
-// This is the beat the whole daily loop points at, so it is a scene rather than
-// a toast: the jelly is served, he eats it, and only then do the numbers show
-// up. Three acts on one chained schedule —
-//
-//   SERVE  the jelly drops onto the plate in front of him and settles.
-//   EAT    he leans in (the kitchen's own eat poses), the jelly is taken down
-//          in three bites, crumbs fly.
-//   DONE   what it did, and how many spoons remain before the coat.
-//
-// The RPC has already run by the time this mounts: `fed`/`goal` are the values
-// it returned. That ordering matters — the animation must never be what decides
-// whether the feed counted, or a closed tab mid-scene eats the jelly for free.
-//
-// prefers-reduced-motion mounts straight at DONE with the same information.
-
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
+import FoodIcon from '@/components/care/FoodIcon'
 import SuperJelly from './SuperJelly'
-import { IconSparkles, IconCrown } from '@/components/PixelIcons'
-import { SUPER_JELLY_BUFF } from '@/lib/jellies'
+import { SUPER_JELLY_BUFF, type SuperJellySnack } from '@/lib/jellies'
+import { FOOD_META } from '@/lib/foodMeta'
+import { getDonut } from '@/lib/donuts'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useCat } from '@/hooks/useCat'
+import { M, MeadowIcon, PrimaryButton, Tag } from '@/components/meadow'
 
-type Act = 'serve' | 'eat' | 'done'
-
-const SERVE_MS = 720
-const EAT_MS = 1240
-/** The kitchen's own head-down poses, cycled so he visibly works at it. */
 const EAT_POSES = ['/erenEat1.png', '/erenEat3.png', '/erenEat2.png', '/erenEat4.png']
 
-const INK = '#3A1F2B'
-const CREAM = '#FFF8EE'
-
 interface Props {
-  /** Feeds completed INCLUDING this one, straight from the RPC. */
   fed: number
   goal: number
-  /** Super Jellies still in hand afterwards. */
   supersLeft: number
+  snack?: { food_key: SuperJellySnack; quantity: 1 }
   onClose: () => void
 }
 
-export default function SuperJellyFeed({ fed, goal, supersLeft, onClose }: Props) {
+// The saved receipt owns the rewards. The scene only plays them back.
+export default function SuperJellyFeed({ fed, goal, supersLeft, snack, onClose }: Props) {
   const reduced = useReducedMotion()
   const cat = useCat()
-  const [act, setAct] = useState<Act>(reduced ? 'done' : 'serve')
+  const [act, setAct] = useState<'serve' | 'eat' | 'done'>(reduced ? 'done' : 'serve')
   const [bite, setBite] = useState(0)
+  const snackName = snack ? getDonut(snack.food_key)?.name ?? FOOD_META[snack.food_key]?.name : null
 
   useEffect(() => {
-    if (reduced) return
-    const t = [
-      window.setTimeout(() => { setAct('eat'); playSound('jl_bounce') }, SERVE_MS),
-      window.setTimeout(() => { setBite(1); playSound('jl_slice') }, SERVE_MS + 260),
-      window.setTimeout(() => { setBite(2); playSound('jl_slice') }, SERVE_MS + 640),
-      window.setTimeout(() => { setBite(3); playSound('jl_combo') }, SERVE_MS + 1000),
-      window.setTimeout(() => { setAct('done'); playSound('level_up') }, SERVE_MS + EAT_MS),
+    if (reduced) { setAct('done'); return }
+    const timers = [
+      setTimeout(() => { setAct('eat'); playSound('jl_bounce') }, 720),
+      setTimeout(() => { setBite(1); playSound('jl_slice') }, 980),
+      setTimeout(() => { setBite(2); playSound('jl_slice') }, 1360),
+      setTimeout(() => { setBite(3); playSound('jl_combo') }, 1720),
+      setTimeout(() => { setAct('done'); playSound('level_up') }, 1960),
     ]
-    return () => t.forEach(window.clearTimeout)
+    return () => timers.forEach(clearTimeout)
   }, [reduced])
 
-  // Stat chips, derived from the buff so the copy can never drift from what
-  // feedWithFood actually applied.
-  const chips = useMemo(() => {
-    const b = SUPER_JELLY_BUFF
-    const out: string[] = []
-    if (b.hunger) out.push(`HUNGER +${b.hunger}`)
-    if (b.happiness) out.push(`JOY +${b.happiness}`)
-    if (b.energy) out.push('ENERGY FULL')
-    if (b.sleep_quality) out.push(`SLEEP +${b.sleep_quality}`)
-    if (b.cleanliness) out.push(`CLEAN +${b.cleanliness}`)
-    if (b.cure) out.push('CURED')
-    if (b.coins) out.push(`+${b.coins} COINS`)
-    return out
-  }, [])
-
-  const eating = act === 'eat'
-  const left = Math.max(0, goal - fed)
-
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-end" role="dialog" aria-modal="true"
-      style={{
-        zIndex: 90,
-        background: 'radial-gradient(90% 60% at 50% 62%, rgba(94,38,58,0.72) 0%, rgba(30,12,20,0.9) 100%)',
-      }}>
-
-      {/* ── The scene ── he stands on a lit patch of parlour floor. */}
-      <div className="relative w-full flex items-end justify-center" style={{ height: '52%', maxWidth: 440 }}>
-        <span aria-hidden style={{
-          position: 'absolute', bottom: 46, width: 210, height: 26, borderRadius: '50%',
-          background: 'radial-gradient(50% 50% at 50% 50%, rgba(255,214,150,0.32), rgba(255,214,150,0))',
-        }} />
-
-        {/* Eren. The head-down eat poses replace the sticker for the middle act;
-            outside it he's the everyday cat, tail and all. */}
-        <div style={{ position: 'absolute', bottom: 34 }}>
-          {eating ? (
-            <img src={EAT_POSES[bite % EAT_POSES.length]} alt="" draggable={false} style={{
-              width: 190, height: 190, objectFit: 'contain', imageRendering: 'auto',
-            }} />
-          ) : (
-            <BlinkingEren size={190} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
-          )}
+    <div className="meadow-root fixed inset-0 flex flex-col items-center justify-end" role="dialog" aria-modal="true" aria-label="Super Jelly eaten"
+      style={{ zIndex: 90, background: 'rgba(28,35,31,0.78)', padding: '16px 18px calc(var(--safe-bottom) + 18px)', boxSizing: 'border-box', overflowY: 'auto' }}>
+      <div aria-hidden className="relative flex items-end justify-center" style={{ width: '100%', flex: '1 0 210px', maxHeight: 330, minHeight: 190 }}>
+        <span style={{ position: 'absolute', bottom: 16, width: 160, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.18)' }} />
+        <div style={{ position: 'absolute', bottom: 18 }}>
+          {act === 'eat' ? <img src={EAT_POSES[bite % EAT_POSES.length]} alt="" width={190} height={190} style={{ objectFit: 'contain' }} />
+            : <BlinkingEren size={190} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />}
         </div>
-
-        {/* The jelly on the floor in front of him, taken down in three bites. */}
-        {bite < 3 && (
-          <div style={{
-            position: 'absolute', bottom: 28, left: '50%',
-            transform: `translateX(-50%) scale(${1 - bite * 0.3})`,
-            transformOrigin: 'bottom center',
-            transition: reduced ? undefined : 'transform 180ms cubic-bezier(0.16,1,0.3,1)',
-            animation: act === 'serve' && !reduced ? 'superJellyServe 720ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
-          }}>
-            <SuperJelly size={104} wobble={!reduced} />
-          </div>
-        )}
-
-        {/* Crumbs — only while he's actually eating. */}
-        {eating && !reduced && [0, 1, 2, 3, 4, 5].map(i => (
-          <span key={i} aria-hidden style={{
-            position: 'absolute', bottom: 46, left: `calc(50% + ${(i - 2.5) * 15}px)`,
-            width: 7, height: 7, borderRadius: '50%',
-            background: ['#D73832', '#94D219', '#985EBA', '#EBD63F', '#F86618', '#FF7FA6'][i],
-            animation: `superJellyCrumb ${520 + i * 40}ms ease-out ${i * 70}ms infinite`,
-          }} />
-        ))}
+        {act !== 'done' && bite < 3 && <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: `translateX(-50%) scale(${1 - bite * 0.3})`, transformOrigin: 'bottom center', transition: reduced ? undefined : 'transform 180ms ease-out', animation: act === 'serve' && !reduced ? 'superJellyServe 720ms ease-out both' : undefined }}>
+          <SuperJelly size={100} glow={false} wobble={!reduced} />
+        </div>}
       </div>
 
-      {/* ── The card ── */}
-      <div className="w-full px-5" style={{ maxWidth: 380, paddingBottom: 'calc(var(--safe-bottom) + 18px)' }}>
-        <div className="relative flex flex-col items-center px-4 pt-4 pb-4" style={{
-          borderRadius: 16, background: `linear-gradient(180deg, ${CREAM} 0%, #FFE9F0 100%)`,
-          border: `3px solid ${INK}`, boxShadow: `0 6px 0 ${INK}, 0 18px 40px rgba(0,0,0,0.45)`,
-          opacity: act === 'done' ? 1 : 0,
-          transform: act === 'done' ? 'translateY(0)' : 'translateY(14px)',
-          transition: reduced ? undefined : 'opacity 260ms ease-out, transform 260ms cubic-bezier(0.16,1,0.3,1)',
-          pointerEvents: act === 'done' ? 'auto' : 'none',
-        }}>
-          {/* Gold rivets — the app's "this one matters" tell. */}
-          {[[6, 6], [6, 0], [0, 6], [0, 0]].map(([l, t], i) => (
-            <span key={i} aria-hidden style={{
-              position: 'absolute', width: 3, height: 3, background: '#F5C842',
-              left: l ? 6 : undefined, right: l ? undefined : 6,
-              top: t ? 6 : undefined, bottom: t ? undefined : 6,
-            }} />
-          ))}
-
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <IconSparkles size={12} />
-            <span className="font-pixel" style={{ fontSize: 9, color: INK, letterSpacing: 0.5 }}>SUPER JELLY EATEN</span>
-            <IconSparkles size={12} />
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-1 mb-3">
-            {chips.map(c => (
-              <span key={c} className="font-pixel px-1.5 py-1" style={{
-                fontSize: 6, color: CREAM, background: '#B3436A', borderRadius: 5,
-              }}>{c}</span>
-            ))}
-          </div>
-
-          {/* ── The road to the coat ── five spoons, one per feed. */}
-          <div className="w-full flex items-center gap-2 px-1 py-2 mb-3" style={{
-            background: 'rgba(58,31,43,0.06)', borderRadius: 10,
-          }}>
-            <IconCrown size={14} />
-            <div className="flex-1 flex gap-1.5">
-              {Array.from({ length: goal }).map((_, i) => (
-                <span key={i} style={{
-                  flex: 1, height: 9, borderRadius: 3,
-                  background: i < fed
-                    ? 'linear-gradient(180deg, #FF9EC0, #E14C7C)'
-                    : 'rgba(58,31,43,0.14)',
-                  border: `2px solid ${i < fed ? INK : 'transparent'}`,
-                  animation: !reduced && i === fed - 1 ? 'jellyComboPop 380ms cubic-bezier(0.16,1,0.3,1)' : undefined,
-                }} />
-              ))}
-            </div>
-            <span className="font-pixel" style={{ fontSize: 8, color: INK }}>{fed}/{goal}</span>
-          </div>
-
-          <p className="text-center mb-3" style={{ fontSize: 10.5, lineHeight: 1.5, color: '#6E4354' }}>
-            {left === 0
-              ? cat.t('{He} has had {his} fill. The jelly coat is yours.')
-              : left === 1
-                ? cat.t('One more Super Jelly and {he} wins the coat.')
-                : cat.t(`${left} more Super Jellies and {he} wins the coat.`)}
-            {supersLeft > 0 && <> You still have <strong style={{ color: INK }}>{supersLeft}</strong> in hand.</>}
-          </p>
-
-          <button onClick={() => { playSound('ui_select'); onClose() }}
-            className="w-full py-3 active:translate-y-[1px] transition-transform"
-            style={{
-              borderRadius: 12, background: 'linear-gradient(180deg, #FF7FA6, #E14C7C)',
-              border: `3px solid ${INK}`, boxShadow: `0 4px 0 ${INK}`,
-            }}>
-            <span className="font-pixel" style={{ fontSize: 9, color: CREAM }}>{cat.sex === 'female' ? 'GOOD GIRL' : 'GOOD BOY'}</span>
-          </button>
+      <div style={{ width: '100%', maxWidth: 360, background: '#FFFFFF', borderRadius: 24, padding: 20, boxSizing: 'border-box', opacity: act === 'done' ? 1 : 0, pointerEvents: act === 'done' ? 'auto' : 'none', transition: reduced ? undefined : 'opacity 220ms ease-out' }}>
+        <div className="flex items-center justify-center" style={{ gap: 8 }}>
+          <MeadowIcon name="check" size={20} color={M.leaf} />
+          <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: M.text }}>Super Jelly eaten</h2>
         </div>
+        <div className="flex flex-wrap justify-center" style={{ gap: 5, margin: '14px 0' }}>
+          {[`Hunger +${SUPER_JELLY_BUFF.hunger}`, `Joy +${SUPER_JELLY_BUFF.happiness}`, 'Energy full', `Sleep +${SUPER_JELLY_BUFF.sleep_quality}`, `Clean +${SUPER_JELLY_BUFF.cleanliness}`, 'Cured', `+${SUPER_JELLY_BUFF.coins} coins`].map(label => <Tag key={label} size="sm" tone="soft">{label}</Tag>)}
+        </div>
+
+        {snack && <div className="flex items-center" style={{ gap: 12, padding: '14px 0', margin: '4px 0 14px', borderTop: `1px solid ${M.divider}`, borderBottom: `1px solid ${M.divider}` }}>
+          <div aria-hidden style={{ flexShrink: 0, animation: act === 'done' && !reduced ? 'superJellyGiftIn 550ms cubic-bezier(0.16,1,0.3,1) both' : undefined }}>
+            <FoodIcon id={snack.food_key} size={62} />
+          </div>
+          <div>
+            <p style={{ margin: 0, color: M.love, fontSize: 12, fontWeight: 800 }}>A surprise for later</p>
+            <p style={{ margin: '2px 0', color: M.text, fontSize: 17, fontWeight: 800 }}>{snackName}</p>
+            <p style={{ margin: 0, color: M.text2, fontSize: 13 }}>One added to your fridge</p>
+          </div>
+        </div>}
+        <div role="img" aria-label={`${Math.min(fed, goal)} of ${goal} fed for the Jelly coat`} className="flex" style={{ gap: 5 }}>
+          {Array.from({ length: goal }, (_, i) => <span key={i} style={{ flex: 1, height: 9, borderRadius: 8, background: i < fed ? M.love : M.track }} />)}
+        </div>
+        <p style={{ margin: '8px 0 16px', color: M.text2, fontSize: 13, lineHeight: 1.4, textAlign: 'center' }}>
+          {fed >= goal ? 'The Jelly coat is in your closet.' : `${goal - fed} more for the Jelly coat.`}
+          {supersLeft > 0 && ` ${supersLeft} still in your fridge.`}
+        </p>
+        <PrimaryButton disabled={act !== 'done'} onClick={() => { playSound('ui_select'); onClose() }} icon={<MeadowIcon name="heart" size={20} color="#FFFFFF" mono />}>
+          {cat.sex === 'female' ? 'Good girl' : 'Good boy'}
+        </PrimaryButton>
       </div>
+      <style>{`@keyframes superJellyGiftIn { from { opacity: 0; transform: translateY(10px) scale(0.7) rotate(-8deg); } to { opacity: 1; transform: translateY(0) scale(1) rotate(0); } }`}</style>
     </div>
   )
 }

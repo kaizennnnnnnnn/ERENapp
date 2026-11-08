@@ -148,7 +148,7 @@ export default function JellyPrize({
           }}>
             <SuperJelly size={38} />
             <p style={{ fontSize: 10, lineHeight: 1.4, color: '#5A3208' }}>
-              <strong>Tray complete!</strong> A Super Jelly is waiting on the stand — feed it to {cat.p.him}.
+              <strong>Tray complete!</strong> A Super Jelly is waiting in your kitchen fridge for {cat.name}.
             </p>
           </div>
         )}

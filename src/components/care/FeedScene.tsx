@@ -48,6 +48,10 @@ import KitchenSheet, { ShelfRow, shelfName } from '@/components/kitchen/KitchenS
 import RoomWeather from '@/components/weather/RoomWeather'
 import { FOOD_META, RETIRED_SHOP_FOODS } from '@/lib/foodMeta'
 import { CAKES } from '@/lib/cakes'
+import { useJellies, type FeedResult } from '@/hooks/useJellies'
+import { JELLY_SKIN_ID } from '@/lib/jellies'
+import SuperJellyShelf from '@/components/jelly/SuperJellyShelf'
+import SuperJellyFeed from '@/components/jelly/SuperJellyFeed'
 
 interface Props { onClose: () => void }
 
@@ -262,6 +266,10 @@ export default function FeedScene({ onClose }: Props) {
   const isDark = useIsDark()
   const wish = useWish()
   const cat = useCat()
+  const jellies = useJellies()
+  const [superFeed, setSuperFeed] = useState<FeedResult | null>(null)
+  const [jellyUnlock, setJellyUnlock] = useState(false)
+  useEffect(() => { setSuperFeed(null); setJellyUnlock(false) }, [user?.id, profile?.household_id])
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'feed' : false
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
@@ -422,7 +430,7 @@ export default function FeedScene({ onClose }: Props) {
   // which sits under the room-sized top bar (z-60); the bar steps aside while
   // either is up, as it does for the Attic's transcript.
   const { setHideStats } = useCare()
-  const barAside = tab === 'fridge' || unlock !== null
+  const barAside = tab === 'fridge' || unlock !== null || superFeed !== null || jellyUnlock
   useEffect(() => {
     if (!barAside) return
     setHideStats(true)
@@ -537,7 +545,7 @@ export default function FeedScene({ onClose }: Props) {
   }
 
   async function handleFeed(item: typeof SHOP_ITEMS[number], recover = false) {
-    if (!user?.id || !stats || feedingRef.current || reaction.active || unlock || foodActionBusy) return
+    if (!user?.id || !stats || feedingRef.current || reaction.active || unlock || superFeed || jellyUnlock || foodActionBusy) return
     if (!recover && (isSleeping || foodActionRetry)) return
     // Stock check is purely local — `inventory` derives from stats already
     // in memory, so the no-food case answers without touching the network.
@@ -597,6 +605,24 @@ export default function FeedScene({ onClose }: Props) {
       }
     } catch {
       showToast('Could not finish this meal. Please try again.', false)
+    } finally {
+      feedingRef.current = false
+      if (mounted.current) setFeeding(null)
+    }
+  }
+
+  async function handleSuperFeed() {
+    if (!user?.id || !stats || feedingRef.current || reaction.active || unlock || superFeed || jellyUnlock || foodActionBusy || foodActionRetry) return
+    if (isSleeping && !jellies.feedPending) return
+    feedingRef.current = true
+    setFeeding('super_jelly')
+    try {
+      const result = await jellies.feedSuper()
+      if (!result.ok || !mounted.current) return
+      setTab(null)
+      setFridgeNav(null)
+      setSuperFeed(result)
+      void completeTask('daily_feed')
     } finally {
       feedingRef.current = false
       if (mounted.current) setFeeding(null)
@@ -719,8 +745,8 @@ export default function FeedScene({ onClose }: Props) {
           {/* LEFT: Fridge button */}
           <KitchenNavButton
             variant="fridge"
-            disabled={isSleeping || foodActionBusy || !!foodActionRetry}
-            onClick={() => { if (!isSleeping) { playSound('ui_modal_open'); setTab('fridge') } }}
+            disabled={(isSleeping && !jellies.feedPending) || feeding !== null || foodActionBusy || !!foodActionRetry}
+            onClick={() => { playSound('ui_modal_open'); setTab('fridge'); void jellies.reload() }}
           />
 
           {/* CENTER: Current food with arrows */}
@@ -833,6 +859,10 @@ export default function FeedScene({ onClose }: Props) {
             title={navCat ? shelfName(navCat.label) : 'Fridge'}
             onBack={navCat ? () => { playSound('ui_back'); setFridgeNav(null) } : undefined}
             onClose={closeFridge} closeLabel="Close the fridge">
+            {!navCat && <SuperJellyShelf count={jellies.supers} fed={jellies.fed} goal={jellies.feedGoal}
+              loaded={jellies.loaded} busy={jellies.feeding} pending={jellies.feedPending} error={jellies.feedError}
+              disabled={foodActionBusy || !!foodActionRetry || reaction.active || (feeding !== null && !jellies.feeding)}
+              sleeping={isSleeping} onFeed={() => { void handleSuperFeed() }} />}
             {navCat ? (
               /* PHASE 2 — the foods you own here. Tap takes one to the tray;
                  hold reads its stats. */
@@ -874,7 +904,7 @@ export default function FeedScene({ onClose }: Props) {
                   })}
                 </div>
               </>
-            ) : fridgeItems.length === 0 ? (
+            ) : fridgeItems.length === 0 && jellies.loaded && jellies.supers < 1 && !jellies.feedPending ? (
               <div className="flex flex-col items-center text-center" style={{ padding: '12px 8px 4px' }}>
                 <span aria-hidden className="flex items-center justify-center" style={{
                   width: 72, height: 72, borderRadius: 22, background: '#E3EEF8',
@@ -883,7 +913,7 @@ export default function FeedScene({ onClose }: Props) {
                 </span>
                 <p style={{ margin: '14px 0 0', fontSize: 18, fontWeight: 800, color: M.text }}>Your fridge is empty</p>
                 <p style={{ margin: '4px 0 18px', fontSize: 14, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
-                  Food you buy in the shop waits in here.
+                  Food you buy or earn waits in here.
                 </p>
                 <PrimaryButton onClick={() => { playSound('ui_tap'); setTab('shop') }}
                   icon={<IconCart size={20} />}>
@@ -1229,6 +1259,12 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* SPECIAL EDITION unlock — sits above everything, including the shop
           drawer, because it's the payoff for the can that just went down. */}
+      {superFeed && <SuperJellyFeed fed={superFeed.fed} goal={jellies.feedGoal} supersLeft={superFeed.supers} snack={superFeed.snack}
+        onClose={() => { const earned = superFeed.skinGranted; setSuperFeed(null); if (earned) setJellyUnlock(true) }} />}
+      {jellyUnlock && getSkin(JELLY_SKIN_ID) && <SkinUnlockCinematic skin={getSkin(JELLY_SKIN_ID)!} variant="jelly"
+        earnedLine={cat.t('{He} ate five Super Jellies and set like one.')}
+        onWear={() => { if (profile?.household_id) void wearSkinEverywhere(profile.household_id, JELLY_SKIN_ID); setJellyUnlock(false) }}
+        onClose={() => setJellyUnlock(false)} />}
       {unlock && (
         <SkinUnlockCinematic
           skin={unlock.skin}

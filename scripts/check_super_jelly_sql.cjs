@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),{randomUUID}=require('node:crypto'),ts=require('typescript'),{PGlite}=require('@electric-sql/pglite')
 const load=require('./lib/load_ts.cjs')(),{SUPER_JELLY_BUFF}=load('src/lib/jellies.ts'),{clampStat,computeErenMood}=load('src/lib/utils.ts')
 const db=new PGlite(),read=file=>fs.readFileSync(file,'utf8'),sql=read('supabase/migration_super_jelly_saves.sql')
+const snacks=process.argv.includes('--snacks'),snackSql=read('supabase/migration_super_jelly_snacks.sql')
 const a=randomUUID(),b=randomUUID(),c=randomUUID(),home=randomUUID(),away=randomUUID();let checks=0
 const one=async(query,args=[])=>(await db.query(query,args)).rows[0]
 const auth=async(actor=a)=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor])
@@ -33,6 +34,7 @@ async function main(){
     'migration_donut_machine.sql','migration_donut_case_and_menu.sql','migration_donut_effects.sql','migration_interactions_useful.sql','migration_battle_results.sql',
     'migration_trophy_battle.sql','migration_economy_reliability.sql','migration_jelly_progress.sql'])await db.exec(read('supabase/'+file))
   await db.exec(sql)
+  if(snacks)await db.exec(snackSql)
   await db.query('insert into public.households(id) values($1),($2)',[home,away])
   await db.query('insert into auth.users(id,email) values($1,$4),($2,$5),($3,$6)',[a,b,c,'jelly-a@test.invalid','jelly-b@test.invalid','jelly-c@test.invalid'])
   await db.query('insert into public.eren_stats(household_id) values($1),($2)',[home,away]);await reset()
@@ -73,10 +75,34 @@ async function main(){
     const legacy=async()=>(await one('select public.feed_super_jelly() r')).r
     const x=oldFirst?await legacy():await feed(),y=oldFirst?await feed():await legacy();assert.equal(x.ok,true);assert.equal(y.reason,'none')
     assert.equal((await one('select fed from public.jelly_progress where user_id=$1',[a])).fed,5);checks++}
-  await reset();await feed();before=await snapshot();await db.exec(sql);assert.deepEqual(await snapshot(),before);checks++
+  await reset();await feed();before=await snapshot();await db.exec(snacks?snackSql:sql);assert.deepEqual(await snapshot(),before);checks++
+  if(snacks){
+    const pool=load('src/lib/jellies.ts').SUPER_JELLY_SNACKS,seen=new Set()
+    await reset()
+    await db.query('update public.jelly_progress set supers=100 where user_id=$1',[a])
+    await db.query('update public.eren_stats set food_by_user=$2,food_inventory=$3 where household_id=$1',[home,JSON.stringify({[a]:{cookie:3,milk:4},[b]:{donut:7}}),JSON.stringify({cookie:9})])
+    for(let n=0;n<75;n++){
+      const request=randomUUID(),old=await one('select food_by_user from public.eren_stats where household_id=$1',[home]),gift=await feed({id:request})
+      assert.equal(gift.version,2);assert.ok(pool.includes(gift.snack.food_key));assert.equal(gift.snack.quantity,1);seen.add(gift.snack.food_key)
+      const after=await one('select food_by_user,food_inventory from public.eren_stats where household_id=$1',[home]),expected=clone(old.food_by_user)
+      expected[a][gift.snack.food_key]=(expected[a][gift.snack.food_key]??0)+1
+      assert.deepEqual(after.food_by_user,expected);assert.deepEqual(after.food_inventory,{cookie:9})
+      const snap=await snapshot();assert.deepEqual(await feed({id:request}),gift);assert.deepEqual(await snapshot(),snap);checks++
+    }
+    assert.equal(seen.size,pool.length)
+    // Pre-rollout receipts can recover, but do not retroactively mint snacks.
+    await reset();await db.exec('drop function public.feed_super_jelly_atomic(uuid,uuid,uuid);alter function eren_private.feed_super_jelly_atomic_v1(uuid,uuid,uuid) set schema public;alter function public.feed_super_jelly_atomic_v1(uuid,uuid,uuid) rename to feed_super_jelly_atomic;')
+    const oldId=randomUUID(),oldFeed=await feed({id:oldId});assert.equal(oldFeed.version,1)
+    await db.exec(snackSql);before=await snapshot();assert.deepEqual(await feed({id:oldId}),oldFeed);assert.deepEqual(await snapshot(),before);checks++
+    // Failure after the feed but before its gift receipt rolls everything back.
+    await reset();await db.exec(`create function public.fail_snack_test() returns trigger language plpgsql as $$begin if new.food_by_user is distinct from old.food_by_user then raise exception 'snack injected';end if;return new;end$$;create trigger fail_snack_test before update on public.eren_stats for each row execute function public.fail_snack_test();`)
+    before=await snapshot();await assert.rejects(()=>feed(),/snack injected/);assert.deepEqual(await snapshot(),before);checks++
+    await db.exec('drop trigger fail_snack_test on public.eren_stats;drop function public.fail_snack_test();');await reset()
+  }
   await db.exec('set role authenticated');await auth();assert.equal((await feed()).ok,true)
   assert.equal((await one("select has_function_privilege('anon','public.feed_super_jelly_atomic(uuid,uuid,uuid)','execute') allowed")).allowed,false)
   await assert.rejects(()=>one('select eren_private.feed_super_jelly_v1()'),/permission denied/);checks++
   await db.close();console.log(`Super Jelly SQL: ${checks} scenarios passed; complete rollback, original buff/decay parity, fifth skin, replay, mixed clients and permissions.`)
 }
+function clone(value){return JSON.parse(JSON.stringify(value))}
 main().catch(async error=>{console.error(error);await db.close();process.exitCode=1})

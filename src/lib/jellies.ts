@@ -47,8 +47,11 @@ export interface JellyDef {
   effects: JellyEffect[]
 }
 
-const V = 1  // art cache-bust; bump if public/jelly/* is regenerated
+const V = 2  // art cache-bust; bump if public/jelly/* is regenerated
 const art = (id: JellyId) => `/jelly/jelly_${id}.png?v=${V}`
+export const SUPER_JELLY_ART = `/jelly/jelly_super.png?v=${V}`
+export const SUPER_JELLY_SNACKS = ['cookie', 'donut', 'donut_choco', 'donut_honey', 'donut_sakura'] as const
+export type SuperJellySnack = typeof SUPER_JELLY_SNACKS[number]
 
 export const JELLIES: JellyDef[] = [
   {

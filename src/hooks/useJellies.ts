@@ -13,6 +13,7 @@ import { pendingSuperJellyFeeds, saveSuperJellyFeed, superJellySaveError, type S
 import {
   JELLIES, JELLY_SKIN_ID, SUPER_FEEDS_FOR_SKIN, TRAY_SIZE,
   getJelly, rollEffect, rollJelly, type JellyDef, type JellyEffect, type JellyId,
+  type SuperJellySnack,
 } from '@/lib/jellies'
 
 // ─── useJellies ─────────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ export interface JellyWin {
 
 export interface FeedResult {
   ok: boolean
+  snack?: { food_key: SuperJellySnack; quantity: 1 }
   /** Super Jellies still in hand. */
   supers: number
   /** Feeds so far, out of SUPER_FEEDS_FOR_SKIN. */
@@ -262,7 +264,7 @@ export function useJellies() {
       void refetchStats(); void load()
       if (saved.skin_granted) void refetchInventory()
       notifyRewardIndicators()
-      return { ok: true, supers: saved.supers, fed: saved.fed, skinGranted: saved.skin_granted }
+      return { ok: true, supers: saved.supers, fed: saved.fed, skinGranted: saved.skin_granted, ...(saved.snack ? { snack: saved.snack } : {}) }
     } catch {
       if (active()) setFeedIssue({ actor, home, message: superJellySaveError() })
       return none
