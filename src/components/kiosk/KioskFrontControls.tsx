@@ -6,14 +6,17 @@ import type { KioskRecord } from './useKioskRecord'
 import { KIOSK as K, kioskPanel, kioskLabel } from './kioskTheme'
 import KioskSpecialBoard from './KioskSpecialBoard'
 import type { NightlySpecial } from './kioskSpecials'
+import KioskNightPanel from './KioskNightPanel'
 
 export default function KioskFrontControls({ record, mine, practiceReason, disabled, onEnter, special }: {
   record: KioskRecord; mine: boolean; practiceReason: string | null; disabled: boolean; onEnter: () => void; special?: NightlySpecial | null
 }) {
   const last = record.lastShift
+  const collectingBonus = Boolean(record.night && (record.night.bonus_due > 0 || record.bonusPending || record.bonusError))
   return <div style={{ position: 'absolute', left: 16, right: 16, bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
     zIndex: 25, display: 'grid', gap: 12, maxWidth: 380, margin: '0 auto' }}>
-    {special && <KioskSpecialBoard special={special} />}
+    {special && !collectingBonus && <KioskSpecialBoard special={special} />}
+    {record.night && <KioskNightPanel record={record} practiceReason={practiceReason} />}
     {last && <details style={{ ...kioskPanel, padding: '0 14px' }}>
       <summary className="m-focus" style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 54, cursor: 'pointer', listStyle: 'none' }}>
         <MeadowIcon name="scroll" size={22} mono color={K.leaf} />
@@ -36,7 +39,7 @@ export default function KioskFrontControls({ record, mine, practiceReason, disab
         </div>}
       </div>
     </details>}
-    {record.loaded && practiceReason && <div style={{ ...kioskPanel, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, lineHeight: 1.4 }}>
+    {record.loaded && practiceReason && !record.night && <div style={{ ...kioskPanel, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, lineHeight: 1.4 }}>
       <MeadowIcon name="moon" size={20} mono color={K.muted} /><span><strong>Practice shift</strong><span style={{ color: K.muted, display: 'block' }}>{practiceReason}</span></span>
     </div>}
     <PrimaryButton onClick={onEnter} busy={record.starting} disabled={disabled} icon={<MeadowIcon name="shawarma" size={22} mono color="#FFFFFF" />}>

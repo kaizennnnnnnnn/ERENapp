@@ -35,6 +35,10 @@ ingredient interaction; a client-generated report is still an untrusted score.
 
 ## Scope And Next Steps
 
+This documents the original compatibility path. The new client uses the shared
+4 AM night and bonus ledger in [KIOSK_NIGHTS.md](KIOSK_NIGHTS.md), after its manual
+migration. These original functions remain for previously queued closes.
+
 This step deliberately keeps the existing local-calendar daily reset. The date
 is now fixed by the server at entry rather than recalculated when closing.
 Shared-bonus catch-up for a partner who finished earlier, the household reset
@@ -43,16 +47,14 @@ artwork and opening/closing animations stay.
 
 ## Nightly Special
 
-The front board previews one of seven named recipes using the current local
-calendar date. Entering freezes the recipe and featured opening customer from
+The front board previews one of seven named recipes using the confirmed household
+night (local-calendar preview only while its migration is missing). Entry freezes the opening customer from
 the server-confirmed session `shift_date`; crossing midnight cannot change an
 active shift. Recipes only use day-one ingredients and keep normal prices and
 tips, with no new bonus, claim, daily allowance or SQL change. The special guest
 always shows the full recipe rather than asking for a usual. Serving that order
 does not replace the guest's saved usual; later visitors retain normal behavior.
-The board refreshes on foreground return and each minute while open. Devices in
-different timezones still follow the existing per-player calendar reset until
-the shared household reset is implemented.
+The board refreshes on foreground return, each minute and at the server reset.
 
 Only a finished report is recoverable; this does not resume half-built meals
 after a page reload. Storage-blocked browsers retain retry intent in memory,

@@ -102,8 +102,10 @@ function fixture(special) {
     assert.equal(served.status, 'paid')
     assert.equal(served.till.served, 1)
     assert.equal(served.till.base, 12)
+    h.render().serve();assert.equal(h.render().till.served,1)
     h.render().closeUp(0)
     assert.equal(h.closed.report.coins, 12)
+    assert.equal(h.closed.report.specialServed, 1)
     assert.deepEqual(h.closed.visits, {})
   } finally { h.dispose() }
   const later = fixture(special)

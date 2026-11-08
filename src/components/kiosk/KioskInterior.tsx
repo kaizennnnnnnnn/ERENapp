@@ -650,7 +650,8 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
       {shift.report && receiptUp && (
         <ShiftReport
           report={confirmed ? { ...shift.report, coins: confirmed.awarded, paid: confirmed.paid, grade: confirmed.grade,
-            nightTotal: confirmed.night_total, goalMet: confirmed.goal_met, unlock: unlockedBetween(confirmed.wraps_before, confirmed.wraps_after) } : shift.report}
+            nightBonus: confirmed.night_bonus, nightTotal: confirmed.night_total, goalMet: confirmed.goal_met,
+            unlock: unlockedBetween(confirmed.wraps_before, confirmed.wraps_after) } : shift.report}
           practiceReason={confirmed && !confirmed.paid && !confirmed.blocked ? 'Tonight\'s pay was already collected. This shift was practice.' : shift.report.paid ? null : practiceReason}
           banked={Boolean(confirmed)}
           saving={record.saving}

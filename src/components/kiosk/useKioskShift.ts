@@ -91,6 +91,8 @@ const PAY_SOUND_MS = 260
 const CONE_ALREADY_ON = 26_000
 
 export interface ShiftReport {
+  specialServed?: number
+  nightBonus?: number
   takings: Takings
   grade: Grade
   /** What actually went into the wallet. Zero on a practice night. */
@@ -273,6 +275,7 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
   const closedRef = useRef(false)
   /** Who we've learned tonight, folded into what the household already knew. */
   const learned = useRef<Regulars>({})
+  const specialServed = useRef(0)
   const streakRef = useRef(0)
   const blackoutRef = useRef(false)
   /** Which line of a chat they're on, and whether they've finished. */
@@ -667,6 +670,7 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
 
   // ── handing it over ─────────────────────────────────────────────────────
   const serve = useCallback(() => {
+    if (statusRef.current !== 'waiting') return
     const current = orderRef.current
     if (!current) return
     if (current.kind === 'chat') { say('they are not buying anything'); playSound('ui_back'); return }
@@ -719,7 +723,8 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       }))
       streakRef.current += 1
       setStreak(streakRef.current)
-      // A costume you got right is a costume the kiosk remembers.
+      if (current.special) specialServed.current += 1
+      // A daily special doesn't replace a regular's usual order.
       if (!current.special) learned.current = {
         ...learned.current,
         [current.customer.id]: rememberOrder(
@@ -796,6 +801,7 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       : 0
     const next: ShiftReport = {
       takings, grade, coins, paid: payable, weather, early, nightTotal, goalMet,
+      specialServed: specialServed.current,
       unlock: unlockedBetween(lifetimeWraps, lifetimeWraps + takings.served),
     }
     setReport(next)

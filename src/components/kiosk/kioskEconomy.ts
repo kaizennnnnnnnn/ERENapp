@@ -143,8 +143,8 @@ export const BLACKOUT_BONUS = 7
 // ── Between the two of you ────────────────────────────────────────────────
 /** Wraps the household is asked for in one night, across both shifts. */
 export const NIGHT_GOAL = 22
-/** What meeting it is worth, to whoever closes with it met. Both of you get
- *  it if you both close after the line is crossed — which is the point. */
+/** Each contributor earns this once. The closing player receives it directly;
+ *  an earlier finisher can collect their earned bonus from the kiosk front. */
 export const GOAL_BONUS = 40
 /** What an unanswered phone costs off the night's tips — a caller who wanted
  *  something and got the machine instead. */

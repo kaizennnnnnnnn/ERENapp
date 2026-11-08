@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry } from '@/lib/supabaseRetry'
+import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth, PROFILE_UPDATED_EVENT } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
@@ -32,8 +32,10 @@ import { startKioskShift, prepareKioskClose, pendingKioskSaves, saveKioskClose, 
   type KioskSession, type KioskSettlement } from '@/lib/kioskSaves'
 import type { PendingSavedRequest } from '@/lib/savedRpc'
 import { notifyRewardIndicators } from '@/lib/rewardIndicators'
+import { readKioskNight, validKioskNight, nightRemaining, claimKioskBonus, pendingKioskBonuses, type KioskNight, type KioskBonus } from '@/lib/kioskNights'
 
 export interface ShiftRow {
+  version?: number
   user_id: string
   shift_date: string
   served: number
@@ -73,6 +75,12 @@ export interface WeekTally {
 }
 
 export interface KioskRecord {
+  night: KioskNight | null
+  bonusBusy: boolean
+  bonusError: string | null
+  bonusReceived: number
+  bonusPending: boolean
+  claimBonus: () => Promise<void>
   /** The front board is known. Starting a shift separately confirms eligibility. */
   loaded: boolean
   /** My paid shift for tonight is already in the book. */
@@ -108,8 +116,7 @@ export interface KioskRecord {
   saveNote: (note: string) => Promise<boolean>
 }
 
-/** Today, in the player's own timezone — a night that starts at 23:50 belongs
- *  to the day it started in. */
+/** Legacy board fallback only; new nights use the server-confirmed household clock. */
 function today(): string {
   return dayKey(0)
 }
@@ -131,16 +138,19 @@ const EMPTY_WEEK: WeekTally = { mine: 0, theirs: 0, myNights: 0, theirNights: 0 
 const NOTE_DAYS = 4
 
 /** How to refer to a shift date, from today. */
-function whenWord(date: string): string {
+function whenWord(date: string, reference = today()): string {
   for (let i = 0; i < NOTE_DAYS; i++) {
-    if (dayKey(i) !== date) continue
+    if (previousDay(reference, i) !== date) continue
     if (i === 0) return 'tonight'
     if (i === 1) return 'last night'
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    return d.toLocaleDateString(undefined, { weekday: 'long' })
+    return new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'long', timeZone: 'UTC' })
   }
   return ''
+}
+function previousDay(reference: string, back: number) {
+  const date = new Date(`${reference}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() - back)
+  return date.toISOString().slice(0, 10)
 }
 
 export function useKioskRecord(): KioskRecord {
@@ -150,6 +160,10 @@ export function useKioskRecord(): KioskRecord {
   const { stats, refetch } = useErenStats()
 
   const [loaded, setLoaded] = useState(false)
+  const [night, setNight] = useState<KioskNight | null>(null)
+  const [bonusBusy, setBonusBusy] = useState(false), [bonusError, setBonusError] = useState<string | null>(null)
+  const [bonusReceived, setBonusReceived] = useState(0), [bonusPending, setBonusPending] = useState(false)
+  const bonusLock = useRef<symbol | null>(null)
   const [workedTonight, setWorkedTonight] = useState(false)
   const [lastShift, setLastShift] = useState<ShiftRow | null>(null)
   const [week, setWeek] = useState<WeekTally>(EMPTY_WEEK)
@@ -157,6 +171,7 @@ export function useKioskRecord(): KioskRecord {
   const [note, setNote] = useState<TillNote | null>(null)
   /** The row we just wrote, so saveNote knows what to edit. */
   const myDate = useRef<string | null>(null)
+  const mySession = useRef<string | null>(null)
   const [session, setSession] = useState<KioskSession | null>(null)
   const [settlement, setSettlement] = useState<KioskSettlement | null>(null)
   const [starting, setStarting] = useState(false)
@@ -169,6 +184,7 @@ export function useKioskRecord(): KioskRecord {
   const startLock = useRef<symbol | null>(null), recoveryLock = useRef<symbol | null>(null)
   useEffect(() => {
     mounted.current = true; startLock.current = null; recoveryLock.current = null; myDate.current = null
+    mySession.current = null; bonusLock.current = null; setNight(null); setBonusBusy(false); setBonusError(null); setBonusReceived(0); setBonusPending(false)
     setSession(null); setSettlement(null); setLoaded(false); setWorkedTonight(false); setLastShift(null)
     setWeek(EMPTY_WEEK); setTonight(0); setNote(null); setStarting(false); setSaving(false); setStartError(null); setSaveError(null)
     return () => { mounted.current = false; epoch.current++; readVersion.current++ }
@@ -182,7 +198,15 @@ export function useKioskRecord(): KioskRecord {
   const load = useCallback(async () => {
     if (!hh || !user?.id) return
     const version = ++readVersion.current
-    const { data, error } = await withRetry(() =>
+    const status = await readKioskNight(supabase, user.id, hh)
+    if (!mounted.current || scope.current.actor !== user.id || scope.current.hh !== hh || version !== readVersion.current) return
+    let boardNight: KioskNight | null = null
+    let boardRows: ShiftRow[]
+    if (!status.error && validKioskNight(status.data as KioskNight, user.id, hh)) {
+      boardNight = { ...(status.data as KioskNight), receivedAt: performance.now() }
+      boardRows = boardNight.rows
+    } else if (status.error?.code === 'PGRST202' || status.error?.code === '42883') {
+      const { data, error } = await withRetry(() =>
       supabase.from('kiosk_shifts')
         .select('user_id, shift_date, served, wrong, walked, missed_calls, best_streak, base, tips, grade, rained, weather, note, closed_at')
         .eq('household_id', hh)
@@ -190,18 +214,20 @@ export function useKioskRecord(): KioskRecord {
         // Enough for both of you to have worked every night of the last week
         // and then some — the board wants seven days, not eight rows.
         .limit(24))
-    // A failed board read is unknown; the start RPC decides paid eligibility.
-    if (!mounted.current || scope.current.actor !== user.id || scope.current.hh !== hh || version !== readVersion.current || error) return
-    const rows = ((data ?? []) as ShiftRow[]).map(row => ({ ...row,
+      if (error || !mounted.current || scope.current.actor !== user.id || scope.current.hh !== hh || version !== readVersion.current) return
+      boardRows = (data ?? []) as ShiftRow[]
+    } else return
+    const rows = boardRows.map(row => ({ ...row,
       weather: row.rained && (!row.weather || row.weather === 'clear') ? 'rain' as const : row.weather ?? 'clear' as const }))
+    setNight(boardNight)
     setLastShift(rows[0] ?? null)
-    setWorkedTonight(rows.some(r => r.user_id === user.id && r.shift_date === today()))
+    const reference = boardNight?.night_date ?? today()
+    setWorkedTonight(boardNight?.worked ?? rows.some(r => r.user_id === user.id && r.shift_date === reference))
 
-    // Tonight and the six before it. Keyed on the player's own dates, so a
-    // week means the last seven nights you lived through.
-    const recent = new Set(Array.from({ length: 7 }, (_, i) => dayKey(i)))
+    // Tonight and the six before it, using the confirmed household night.
+    const recent = new Set(Array.from({ length: 7 }, (_, i) => previousDay(reference, i)))
     const tally = { ...EMPTY_WEEK }
-    const now = today()
+    const now = reference
     let served = 0
     for (const r of rows) {
       if (r.shift_date === now) served += r.served
@@ -210,20 +236,28 @@ export function useKioskRecord(): KioskRecord {
       else { tally.theirs += r.served; tally.theirNights += 1 }
     }
     setWeek(tally)
-    setTonight(served)
+    setTonight(boardNight?.night_total ?? served)
 
     // The note on the wall: the newest one anybody wrote, while it's still
     // recent enough to be about a night either of you remembers. Rows arrive
     // newest first, so the first hit is the right one.
-    const fresh = rows.find(r => r.note && r.note.trim() && whenWord(r.shift_date))
+    const fresh = rows.find(r => r.note && r.note.trim() && whenWord(r.shift_date, reference))
     setNote(fresh
-      ? { text: fresh.note as string, mine: fresh.user_id === user.id, when: whenWord(fresh.shift_date) }
+      ? { text: fresh.note as string, mine: fresh.user_id === user.id, when: whenWord(fresh.shift_date, reference) }
       : null)
     setLoaded(true)
   }, [hh, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load() }, [load])
-  useEffect(() => onForeground(load), [load])
+  useEffect(() => {
+    const off = onForeground(load), timer = setInterval(() => { void load() }, 60_000)
+    return () => { off(); clearInterval(timer) }
+  }, [load])
+  useEffect(() => {
+    if (!night) return
+    const timer = setTimeout(() => { void load() }, nightRemaining(night) + 100)
+    return () => clearTimeout(timer)
+  }, [night, load])
 
   const performClose = useCallback(async (request: PendingSavedRequest) => {
     const actor = user?.id, generation = epoch.current
@@ -238,7 +272,7 @@ export function useKioskRecord(): KioskRecord {
       }
       const saved = result as KioskSettlement
       setSettlement(saved)
-      if (saved.paid) myDate.current = saved.shift_date
+      if (saved.paid) { myDate.current = saved.shift_date; mySession.current = saved.version === 2 ? saved.session_id : null }
       window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: actor, patch: { coins: saved.coins } } }))
       notifyRewardIndicators()
       void refetch(); void load()
@@ -277,8 +311,8 @@ export function useKioskRecord(): KioskRecord {
       const result = await startKioskShift(supabase, actor, hh)
       if (!active()) return false
       if (!result.ok) { setStartError(result.reason === 'not_ready'
-        ? 'The shop needs its saving update before a shift can open.' : kioskSaveError(result.reason)); return false }
-      setSession(result as KioskSession); setSettlement(null); setSaveError(null); myDate.current = null
+        ? 'The shop needs its nightly update before a shift can open.' : kioskSaveError(result.reason)); return false }
+      setSession(result as KioskSession); setSettlement(null); setSaveError(null); myDate.current = null; mySession.current = null
       return true
     } catch { if (active()) setStartError('Could not open the shift. Try again; nothing has been spent.'); return false }
     finally { if (startLock.current === token) { startLock.current = null; if (active()) setStarting(false) } }
@@ -294,6 +328,15 @@ export function useKioskRecord(): KioskRecord {
 
   const saveNote = useCallback(async (note: string) => {
     if (!hh || !user?.id || !myDate.current || scope.current.actor !== user.id || scope.current.hh !== hh) return false
+    if (mySession.current) {
+      const actor = user.id, home = hh, sessionId = mySession.current
+      const { data, error } = await writeWithRetry(signal => supabase.rpc('pin_kiosk_night_note', {
+        p_expected_user: actor, p_household_id: home, p_session_id: sessionId, p_note: note.slice(0, 90),
+      }).abortSignal(signal))
+      if (scope.current.actor !== actor || scope.current.hh !== home || !mounted.current) return false
+      if (!error && data?.ok) { void load(); return true }
+      return false
+    }
     const { error } = await withRetry(() => supabase.from('kiosk_shifts')
       .update({ note: note.slice(0, 90) })
       .eq('household_id', hh)
@@ -303,11 +346,42 @@ export function useKioskRecord(): KioskRecord {
     return !error
   }, [hh, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const claimBonus = useCallback(async () => {
+    const actor = user?.id, generation = epoch.current
+    const active = () => mounted.current && epoch.current === generation && scope.current.actor === actor && scope.current.hh === hh
+    if (!actor || !hh || !active() || bonusLock.current) return
+    const token = Symbol('kiosk-bonus'); bonusLock.current = token; setBonusBusy(true); setBonusError(null)
+    try {
+      const result = await claimKioskBonus(supabase, actor, hh)
+      if (!active()) return
+      if (!result.ok) { setBonusError('Could not confirm your nightly bonus. Retry to recover it.'); return }
+      const saved = result as KioskBonus
+      window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: actor, patch: { coins: saved.coins } } }))
+      setBonusReceived(saved.awarded); setNight(previous => previous ? { ...previous, bonus_due: Math.max(0, previous.bonus_due - saved.awarded) } : previous)
+      notifyRewardIndicators(); void refetch(); void load()
+    } catch { if (active()) setBonusError('Could not confirm your nightly bonus. Retry to recover it.') }
+    finally {
+      if (bonusLock.current === token) bonusLock.current = null
+      if (active()) { setBonusBusy(false); setBonusPending(pendingKioskBonuses(actor, hh).length > 0) }
+    }
+  }, [hh, user?.id, load, refetch]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bonusLatest = useRef(claimBonus); bonusLatest.current = claimBonus
+  useEffect(() => {
+    const recover = () => {
+      if (!user?.id || !hh) return
+      const pending = pendingKioskBonuses(user.id, hh).length > 0
+      setBonusPending(pending)
+      if (pending) void bonusLatest.current()
+    }
+    recover(); return onForeground(recover)
+  }, [hh, user?.id])
+
   // Stable while the count is: the shift hook holds onto this, and a fresh
   // object every render would churn its callbacks.
   const menu = useMemo(() => menuFor(lifetimeWraps), [lifetimeWraps])
 
   return {
+    night, bonusBusy, bonusError, bonusReceived, bonusPending, claimBonus,
     loaded,
     workedTonight,
     lastShift,

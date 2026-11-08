@@ -103,7 +103,7 @@ export default function ShiftReport({ report, practiceReason, banked, saving, sa
           <div style={{ height: '100%', width: `${Math.min(1, nightTotal / NIGHT_GOAL) * 100}%`, background: K.leaf, borderRadius: 4 }} />
         </div>
         {goalMet && <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 9, color: K.leaf, fontSize: 13 }}>
-          <span>Nightly goal complete</span>{paidOut && <strong>+{GOAL_BONUS} coins</strong>}</div>}
+          <span>Nightly goal complete</span>{paidOut && (report.nightBonus ?? GOAL_BONUS) > 0 && <strong>+{report.nightBonus ?? GOAL_BONUS} coins</strong>}</div>}
       </section>
       {banked && unlock && <div style={{ marginTop: 15, color: K.leaf, fontSize: 14, lineHeight: 1.4 }}>
         <strong>{unlock.kind === 'menu' ? 'New on the menu' : 'Milestone reached'}: {unlock.label.toLowerCase()}</strong>

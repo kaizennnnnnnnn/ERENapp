@@ -36,13 +36,14 @@ export default function ShawarmaPage() {
   const { user, profile } = useAuth()
   const { stats } = useErenStats()
   const cat = useCat(), record = useKioskRecord()
-  const special = useNightlySpecial(record.menu)
+  const special = useNightlySpecial(record.menu, record.night?.night_date)
   const [phase, setPhase] = useState<Phase>('front')
   const tired = (stats?.energy ?? 100) < EXHAUSTED_ENERGY
-  const payable = record.session ? record.session.paid : !record.workedTonight && !tired
-  const practiceReason = record.session?.blocked
+  const session = phase === 'front' ? null : record.session
+  const payable = session ? session.paid : !record.workedTonight && !tired
+  const practiceReason = session?.blocked
     ? cat.t('{name} needs a rest before another paid shift.')
-    : (record.session && !record.session.paid) || record.workedTonight
+    : (session && !session.paid) || record.workedTonight
       ? 'Your paid shift is already complete for tonight.'
       : tired ? cat.t('{name} needs a rest before another paid shift.') : null
   const mine = !!record.lastShift && !!user && record.lastShift.user_id === user.id

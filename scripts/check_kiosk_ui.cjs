@@ -16,6 +16,7 @@ const Front = load('src/components/kiosk/KioskFrontControls.tsx').default
 const SpecialBoard = load('src/components/kiosk/KioskSpecialBoard.tsx').default
 const { nightlySpecialFor } = load('src/components/kiosk/kioskSpecials.ts')
 const { menuFor } = load('src/components/kiosk/kioskShift.ts')
+const NightPanel = load('src/components/kiosk/KioskNightPanel.tsx').default
 const { KIOSK: K } = load('src/components/kiosk/kioskTheme.ts')
 const html = (Component, props) => renderToStaticMarkup(React.createElement(Component, props))
 const special = nightlySpecialFor('2026-11-08', menuFor(0))
@@ -25,6 +26,16 @@ assert.ok(specialMarkup.includes(special.name))
 assert.match(specialMarkup, /<summary/)
 assert.match(specialMarkup, /With freshly carved meat/)
 assert.doesNotMatch(specialMarkup, /font-pixel|linear-gradient|text-shadow/)
+const nightRecord={night:{worked:true,bonus_due:40,time_zone:'Europe/Budapest',server_time:'2026-11-08T10:00:00Z',resets_at:'2026-11-08T12:00:00Z',receivedAt:performance.now()},
+  bonusPending:false,bonusReceived:0,bonusBusy:false,bonusError:null,claimBonus:async()=>{}}
+const nightly=html(NightPanel,{record:nightRecord,practiceReason:'Paid shift complete'})
+for(const text of ['Next paid shift','04:00 Budapest','Collect nightly bonus','+40'])assert.ok(nightly.includes(text))
+const laterBonus=html(NightPanel,{record:{...nightRecord,night:{...nightRecord.night,worked:false}},practiceReason:null})
+assert.match(laterBonus,/Resets/);assert.doesNotMatch(laterBonus,/Next paid shift/)
+assert.match(html(NightPanel,{record:{...nightRecord,bonusBusy:true},practiceReason:null}),/aria-busy="true"/)
+assert.match(html(NightPanel,{record:{...nightRecord,bonusError:'Connection lost'},practiceReason:null}),/Retry nightly bonus/)
+assert.match(html(NightPanel,{record:{...nightRecord,night:{...nightRecord.night,bonus_due:0}},practiceReason:null}),/Paid shift complete/)
+assert.match(html(NightPanel,{record:{...nightRecord,bonusReceived:40,night:{...nightRecord.night,bonus_due:0}},practiceReason:null}),/Nightly bonus received/)
 const report = {
   takings: { served: 3, wrong: 1, walked: 2, missedCalls: 1, bestStreak: 3, base: 30, tips: 12, inDark: 1 },
   grade: 'B', coins: 42, paid: true, weather: 'rain', early: false, nightTotal: 3, goalMet: false, unlock: null,
@@ -48,6 +59,7 @@ assert.doesNotMatch(practice, /Leave a note at the till/)
 const goal = html(Report, { ...props, report: { ...report, goalMet: true, nightTotal: 25 } })
 assert.match(goal, /Nightly goal complete/)
 assert.match(goal, /aria-valuenow="22"/)
+assert.doesNotMatch(html(Report,{...props,report:{...report,goalMet:true,nightTotal:22,nightBonus:0}}),/\+40 coins/)
 for (const value of ['window', 'meat', 'fridge', 'toppings']) {
   const rendered = html(Stations, { value, onChange() {} })
   assert.equal((rendered.match(/role="radio"/g) || []).length, 4)
