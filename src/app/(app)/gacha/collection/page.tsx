@@ -5,7 +5,7 @@
 // components/collection/CollectionView, which stays pure so it can be
 // screenshotted with mock ownership.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
@@ -15,20 +15,24 @@ import type { GachaCategory, GachaItemDef } from '@/types'
 export default function CollectionPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
-  const { ownsItem, getQuantity, useItem, collectionPct, ownedCount, totalItems, loading, loaded } = useInventory()
+  const { ownsItem, getQuantity, useItem, usingItemId, pendingItemId, useError,
+    collectionPct, ownedCount, totalItems, loading, loaded } = useInventory()
 
   const [tab, setTab] = useState<GachaCategory>('skin')
   const [selected, setSelected] = useState<GachaItemDef | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
 
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
 
-  async function use(item: GachaItemDef) {
-    setSelected(null)
-    const result = await useItem(item.id)
+  async function use(itemId: string, recover = false) {
+    const result = await useItem(itemId, recover)
     if (result.success) {
+      setSelected(null)
       setToast(result.message)
-      setTimeout(() => setToast(null), 2500)
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+      toastTimer.current = setTimeout(() => setToast(null), 2500)
     }
   }
 
@@ -44,7 +48,11 @@ export default function CollectionPage() {
       ready={!loading && loaded}
       selected={selected}
       onSelect={setSelected}
-      onUse={use}
+      onUse={item => { void use(item.id) }}
+      usingItemId={usingItemId}
+      pendingItemId={pendingItemId}
+      useError={useError}
+      onRetryUse={() => { if (pendingItemId) void use(pendingItemId, true) }}
       onOpenCloset={() => router.push('/closet')}
       onBack={() => router.back()}
       toast={toast}

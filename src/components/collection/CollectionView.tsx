@@ -102,11 +102,16 @@ interface Props {
   onOpenCloset: () => void
   onBack: () => void
   toast: string | null
+  usingItemId?: string | null
+  pendingItemId?: string | null
+  useError?: string | null
+  onRetryUse?: () => void
 }
 
 export default function CollectionView({
   tab, onTabChange, ownsItem, getQuantity, collectionPct, ownedCount, totalItems,
   ready, selected, onSelect, onUse, onOpenCloset, onBack, toast,
+  usingItemId = null, pendingItemId = null, useError = null, onRetryUse,
 }: Props) {
   const items = useMemo(() => getItemsByCategory(tab), [tab])
   const owned = (list: GachaItemDef[]) => list.filter(i => ownsItem(i.id)).length
@@ -129,6 +134,17 @@ export default function CollectionView({
         </div>
         <Meter value={ready ? collectionPct / 100 : 0} style={{ marginTop: 12 }} label="Collection found" />
       </Card>
+
+      {pendingItemId && !selected && (
+        <section aria-label="Snack save" style={{ marginTop: 16 }}>
+          <p role="status" style={{ fontSize: 14, lineHeight: 1.45, color: M.text2 }}>
+            {useError ?? 'One snack save needs confirmation. Retrying will not use another one.'}
+          </p>
+          <PrimaryButton onClick={onRetryUse} busy={!!usingItemId}>
+            {usingItemId ? 'Checking save...' : 'Retry snack save'}
+          </PrimaryButton>
+        </section>
+      )}
 
       <Segmented<GachaCategory>
         ariaLabel="Collection category"
@@ -166,9 +182,13 @@ export default function CollectionView({
         item={selected}
         ownsItem={ownsItem}
         getQuantity={getQuantity}
+        busy={!!usingItemId}
+        pendingItemId={pendingItemId}
+        issue={useError}
+        onRetry={onRetryUse}
         onUse={item => { playSound('ui_tap'); onUse(item) }}
         onCloset={() => { playSound('ui_tap'); onOpenCloset() }}
-        onClose={() => { playSound('ui_modal_close'); onSelect(null) }}
+        onClose={() => { if (!usingItemId) { playSound('ui_modal_close'); onSelect(null) } }}
       />
 
       {toast && (
@@ -259,11 +279,12 @@ function ItemTile({ item, owned, quantity, onClick }: {
 }
 
 // ─── Detail / source sheet ───────────────────────────────────────────────────
-function ItemSheet({ item: picked, ownsItem, getQuantity, onUse, onCloset, onClose }: {
+function ItemSheet({ item: picked, ownsItem, getQuantity, onUse, onCloset, onClose, busy, pendingItemId, issue, onRetry }: {
   item: GachaItemDef | null
   ownsItem: (id: string) => boolean
   getQuantity: (id: string) => number
   onUse: (item: GachaItemDef) => void; onCloset: () => void; onClose: () => void
+  busy: boolean; pendingItemId: string | null; issue: string | null; onRetry?: () => void
 }) {
   const cat = useCat()
   // The last item shown, so the sheet slides away still showing it rather
@@ -271,13 +292,19 @@ function ItemSheet({ item: picked, ownsItem, getQuantity, onUse, onCloset, onClo
   const last = useRef(picked)
   if (picked) last.current = picked
   const item = picked ?? last.current
-  const owned = item ? ownsItem(item.id) : false
+  const owned = item ? ownsItem(item.id) || pendingItemId === item.id : false
   const quantity = item ? getQuantity(item.id) : 0
   const can = item?.category === 'consumable'
-  const footer = !item ? null
+  const action = !item ? null
     : owned && !can ? <PrimaryButton onClick={onCloset}>Open the Closet</PrimaryButton>
-    : owned && can ? <PrimaryButton onClick={() => onUse(item)} disabled={quantity <= 0}>Use one</PrimaryButton>
+    : pendingItemId && can ? <PrimaryButton onClick={onRetry} busy={busy}>{busy ? 'Checking save...' : 'Retry snack save'}</PrimaryButton>
+    : owned && can ? <PrimaryButton onClick={() => onUse(item)} disabled={quantity <= 0} busy={busy}>{busy ? 'Saving...' : 'Use one'}</PrimaryButton>
     : <PrimaryButton onClick={onClose}>Got it</PrimaryButton>
+  const footer = <>
+    {can && issue && <p role="alert" style={{ margin: '0 0 12px', fontSize: 14, lineHeight: 1.45, color: M.text2 }}>{issue}</p>}
+    {can && pendingItemId && !issue && <p role="status" style={{ margin: '0 0 12px', fontSize: 14, lineHeight: 1.45, color: M.text2 }}>Checking your previous snack will not use another one.</p>}
+    {action}
+  </>
   return (
     <Sheet open={!!picked} onClose={onClose} title={item ? (owned ? swapCatName(item.name, cat) : 'Not found yet') : ''} footer={footer}>
       {item && (

@@ -8,10 +8,20 @@ import { useAuth } from './useAuth'
 import type { UserInventoryItem } from '@/types'
 import { GACHA_ITEMS } from '@/lib/gacha'
 import { useErenStats } from './useErenStats'
+import { pendingInventoryItem, saveInventoryItem, inventoryItemError } from '@/lib/inventoryItemSaves'
 
 export function useInventory() {
   const supabase = createClient()
   const { user, profile } = useAuth()
+  const { acceptInventoryItemSave } = useErenStats()
+  const actor = user?.id ?? null, home = profile?.household_id ?? null
+  const scope = useRef({ actor, home })
+  if (scope.current.actor !== actor || scope.current.home !== home) scope.current = { actor, home }
+  const currentScope = scope.current
+  const mounted = useRef(false), epoch = useRef(0), readVersion = useRef(0), lock = useRef<symbol | null>(null)
+  const [usingItemId, setUsingItemId] = useState<string | null>(null)
+  const [pendingItemId, setPendingItemId] = useState<string | null>(null)
+  const [useError, setUseError] = useState<string | null>(null)
   const [inventory, setInventory] = useState<UserInventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   // Flips true after the FIRST successful fetch (stays true thereafter). Lets
@@ -26,11 +36,13 @@ export function useInventory() {
   const loadFailedRef = useRef(false)
 
   const fetchInventory = useCallback(async () => {
-    if (!user?.id) return
+    if (!actor || scope.current !== currentScope) return
+    const version = ++readVersion.current, generation = epoch.current
     const { data, error } = await withRetry(() => supabase
       .from('user_inventory')
       .select('*')
-      .eq('user_id', user.id))
+      .eq('user_id', actor))
+    if (!mounted.current || scope.current !== currentScope || generation !== epoch.current || version !== readVersion.current) return
     if (error) {
       // Keep whatever inventory we already have — a 503 must not read as
       // "owns nothing" (it blanked equipped cosmetics and the collection).
@@ -42,15 +54,16 @@ export function useInventory() {
     if (data) setInventory(data)
     setLoaded(true)
     setLoading(false)
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentScope]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchInventory() }, [fetchInventory])
-
-  // Self-heal after an outage: nothing else refetches the inventory (the
-  // equip/use refetches need items the user can no longer see).
   useEffect(() => {
-    return onForeground(() => { if (loadFailedRef.current) fetchInventory() })
-  }, [fetchInventory])
+    mounted.current = true; lock.current = null; readVersion.current++
+    setInventory([]); setLoaded(false); setLoading(Boolean(actor)); setUsingItemId(null); setUseError(null)
+    const sync = () => setPendingItemId(actor && home ? pendingInventoryItem(actor, home)?.itemId ?? null : null)
+    sync(); void fetchInventory()
+    const off = onForeground(() => { sync(); if (loadFailedRef.current) void fetchInventory() })
+    return () => { mounted.current = false; epoch.current++; readVersion.current++; off() }
+  }, [actor, home, fetchInventory])
 
   const ownsItem = useCallback((itemId: string) => {
     return inventory.some(i => i.item_id === itemId)
@@ -65,56 +78,43 @@ export function useInventory() {
   // per-room in the Closet (eren_stats.room_skins) and consumables are used.
   // The `equipped` column is left alone — old rows are harmless.
 
-  // Use a consumable item (apply buff, decrement quantity)
-  const useItem = useCallback(async (itemId: string): Promise<{ success: boolean; message: string }> => {
-    if (!user?.id || !profile?.household_id) return { success: false, message: 'Not logged in' }
-    const item = GACHA_ITEMS.find(g => g.id === itemId)
-    if (!item || item.category !== 'consumable' || !item.buff) return { success: false, message: 'Not a consumable' }
-    const inv = inventory.find(i => i.item_id === itemId)
-    if (!inv || inv.quantity <= 0) return { success: false, message: 'You don\'t have this item' }
-
-    // Read current stats BEFORE consuming the item. The old order
-    // decremented first, so a transient 503 on the stat read destroyed the
-    // consumable with zero effect (and the partial all-stat branch computed
-    // NaN from the failed read, voiding the whole update). A full restore
-    // needs no read at all.
-    const amount = item.buff.amount
-    const isFullRestore = item.buff.stat === 'all' && amount >= 100
-    let current: Record<string, number> = {}
-    if (!isFullRestore) {
-      const cols = item.buff.stat === 'all'
-        ? 'happiness, hunger, energy, sleep_quality, cleanliness'
-        : item.buff.stat
-      const { data, error } = await withRetry(() => supabase
-        .from('eren_stats').select(cols).eq('household_id', profile.household_id).maybeSingle())
-      if (error || !data) return { success: false, message: 'Connection hiccup — nothing used, try again' }
-      current = data as Record<string, number>
-    }
-
-    // Apply buff to eren_stats
-    const update: Record<string, number> = {}
-    if (item.buff.stat === 'all') {
-      for (const stat of ['happiness', 'hunger', 'energy', 'sleep_quality', 'cleanliness']) {
-        update[stat] = isFullRestore ? 100 : Math.min(100, (current[stat] ?? 0) + amount)
+  const useItem = useCallback(async (itemId: string, recover = false): Promise<{ success: boolean; message: string }> => {
+    const failure = (reason: string) => ({ success: false, message: inventoryItemError(reason) })
+    if (!actor || !home || scope.current !== currentScope || !mounted.current) return failure('session_changed')
+    if (lock.current) return failure('busy')
+    const pending = pendingInventoryItem(actor, home)
+    const item = GACHA_ITEMS.find(g => g.id === (recover ? pending?.itemId : itemId) && g.category === 'consumable')
+    if (!item) return failure('no_stock')
+    const token = Symbol(), generation = epoch.current
+    lock.current = token; setUsingItemId(item.id); setUseError(null)
+    const active = () => mounted.current && scope.current === currentScope && epoch.current === generation
+    try {
+      const result = await saveInventoryItem(supabase, actor, home, item.id, recover)
+      if (!active()) return failure('session_changed')
+      if (!result.ok) {
+        const message = inventoryItemError(result.reason)
+        setUseError(message)
+        if (result.reason === 'no_stock') void fetchInventory()
+        return { success: false, message }
       }
-    } else {
-      update[item.buff.stat] = Math.min(100, (current[item.buff.stat] ?? 0) + amount)
+      // The confirmed response is sufficient: no blocking follow-up fetch.
+      readVersion.current++
+      setInventory(prev => [...prev.filter(i => i.item_id !== result.item_id), ...(result.inventory_item ? [result.inventory_item] : [])])
+      acceptInventoryItemSave(result)
+      // Recovery is available before the first inventory read has finished.
+      // Replace that now-invalidated read without holding the action open.
+      if (!loaded) void fetchInventory()
+      return { success: true, message: `Used ${item.name}!` }
+    } catch {
+      if (active()) setUseError(inventoryItemError())
+      return failure('connection')
+    } finally {
+      if (active() && lock.current === token) {
+        lock.current = null; setUsingItemId(null)
+        setPendingItemId(pendingInventoryItem(actor, home)?.itemId ?? null)
+      }
     }
-    const { error: buffError } = await supabase.from('eren_stats')
-      .update({ ...update, updated_at: new Date().toISOString() })
-      .eq('household_id', profile.household_id)
-    if (buffError) return { success: false, message: 'Connection hiccup — nothing used, try again' }
-
-    // Consume only after the buff landed.
-    if (inv.quantity === 1) {
-      await supabase.from('user_inventory').delete().eq('id', inv.id)
-    } else {
-      await supabase.from('user_inventory').update({ quantity: inv.quantity - 1 }).eq('id', inv.id)
-    }
-
-    await fetchInventory()
-    return { success: true, message: `Used ${item.name}!` }
-  }, [user?.id, profile?.household_id, inventory, fetchInventory]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [actor, home, currentScope, acceptInventoryItemSave, fetchInventory, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Collection stats
   // Count only rows whose item still exists. Deleting the emoji tiers left
@@ -125,5 +125,6 @@ export function useInventory() {
   const totalItems = GACHA_ITEMS.length
   const collectionPct = Math.round((ownedCount / totalItems) * 100)
 
-  return { inventory, loading, loaded, ownsItem, getQuantity, useItem, collectionPct, ownedCount, totalItems, refetch: fetchInventory }
+  return { inventory, loading, loaded, ownsItem, getQuantity, useItem, usingItemId, pendingItemId, useError,
+    collectionPct, ownedCount, totalItems, refetch: fetchInventory }
 }

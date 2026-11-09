@@ -31,3 +31,29 @@ Checks:
 These are deterministic tests, not a hosted latency benchmark or a browser
 service-worker installation test. The next useful measurement is timestamped
 RPC duration on an actually slow button, without recording personal data.
+
+## Collection snack follow-up
+
+The collection's "Use one" path still had four sequential requests: stat
+read, buff update, inventory decrement/delete, inventory refresh. The item
+write's error was not checked, so a failed response could grant the buff
+without consuming stock. It also closed the sheet before saving.
+
+`migration_inventory_item_saves.sql` replaces that action with one atomic,
+receipt-backed `use_inventory_item_atomic` RPC. The server derives all 13
+existing buffs from an allowlist, locks the actor, household stats and stock,
+and commits the buff, one-item decrement and receipt together. It changes no
+fridge food, coins, care history, decay clock or cosmetic fields. Replays
+return current stock and care values without applying the buff again.
+
+The client adopts the confirmed quantity and stats without awaiting another
+read, rejects stale reads/responses and account/household changes, and keeps
+an uncertain request recoverable after a reload. The item sheet stays open
+with a busy action or visible retry message. Missing SQL refuses safely with
+no legacy write fallback. Install the entire SQL file manually before
+publishing the client; the currently published client remains compatible.
+
+Verification: `check_inventory_item_sql.cjs` (181 disposable PostgreSQL
+scenarios), `check_inventory_item_client.cjs` (14 real-helper/hook/provider tests with
+mock transport), and isolated browser checks at 390x844 and 360x740. No hosted
+player writes or hosted latency benchmark were used.

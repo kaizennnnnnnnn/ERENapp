@@ -17,6 +17,7 @@ import { pendingPlaySession, savePlaySession, mergePlayStats, playSessionError, 
 import { onForeground } from '@/lib/onForeground'
 import { pendingWashSession, saveWashSession, mergeWashStats, washSessionError, type WashSessionSave } from '@/lib/washSessionSaves'
 import { pendingSleepSession, saveSleepSession, mergeSleepStats, sleepSessionError, type SleepSessionSave, type SleepAction } from '@/lib/sleepSessionSaves'
+import { mergeInventoryStats, type InventoryItemSave } from '@/lib/inventoryItemSaves'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -317,6 +318,11 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
   const playScope = useRef({ householdId, userId })
   if (playScope.current.userId !== userId || playScope.current.householdId !== householdId) playScope.current = { householdId, userId }
   const currentPlayScope = playScope.current
+  const acceptInventoryItemSave = useCallback((saved: InventoryItemSave) => {
+    if (playScope.current !== currentPlayScope || saved.user_id !== userId || saved.household_id !== householdId) return
+    statsRef.current = mergeInventoryStats(statsRef.current, saved.stats)
+    setStats(prev => mergeInventoryStats(prev, saved.stats))
+  }, [currentPlayScope, userId, householdId])
   const playEpoch = useRef(0), playMounted = useRef(true), playLock = useRef<symbol | null>(null)
   const [playSaveBusy, setPlaySaveBusy] = useState(false)
   const [playSavePending, setPlaySavePending] = useState(false)
@@ -880,7 +886,7 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     mutateFood(fromUserId, 'gift', [key], toUserId), [mutateFood])
 
   return {
-    stats, loading, error, applyAction, feedWithFood,
+    stats, loading, error, applyAction, feedWithFood, acceptInventoryItemSave,
     runFoodAction, foodActionBusy, foodActionRetry,
     finishPlaySession, playSaveBusy,
     finishWashSession, washSaveBusy,
