@@ -57,6 +57,9 @@ export async function savedRpc<T extends SavedResult>(
     signal => supabase.rpc(name, { ...request.args, p_request_id: request.id }).abortSignal(signal),
     2,
     e => !['PGRST202', '42883', '42501', '22023'].includes(e.code ?? ''),
+    // Receipt-backed requests can recover later. Do not hold a button through
+    // three full timeouts; still retry quick transient errors within this budget.
+    { budgetMs: 6000 },
   )
   if (error || !data || typeof data.ok !== 'boolean' || (data.ok && validate && !validate(data as T))) {
     const missing = error?.code === 'PGRST202' || error?.code === '42883'

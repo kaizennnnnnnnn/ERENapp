@@ -40,8 +40,8 @@ export async function withRetry<T>(
 // Retry + per-attempt timeout for eren_stats WRITES. A write differs from a
 // read in two ways: the caller's button sits in a disabled busy state until
 // the promise settles (so a stalled request must be aborted, not waited out),
-// and it must only be used for idempotent updates — ones that set absolute
-// values, so a retry after an ambiguous failure can't double-apply.
+// and it must only be used for idempotent updates: absolute values or a
+// receipt-keyed RPC, so an ambiguous failure can't double-apply.
 //
 // `run` receives an AbortSignal and must build a FRESH query each call
 // (supabase-js builders are single-use thenables) with `.abortSignal(signal)`
@@ -50,18 +50,27 @@ export async function withRetry<T>(
 // `shouldRetry` lets a caller return an error it knows is permanent (a column
 // the database doesn't have yet) at once instead of after the full backoff.
 // Without it every error is retried, as before.
+// Receipt-backed callers can cap the whole retry sequence with budgetMs.
 const WRITE_TIMEOUT_MS = 6000
 
 export async function writeWithRetry<T>(
   run: (signal: AbortSignal) => PromiseLike<{ data: T; error: RetryableError | null }>,
   retries = 2,
   shouldRetry: (error: RetryableError) => boolean = () => true,
+  options: { budgetMs?: number } = {},
 ): Promise<{ data: T; error: RetryableError | null }> {
   let last: { data: T; error: RetryableError | null } | null = null
+  const deadline = options.budgetMs === undefined ? Infinity : Date.now() + options.budgetMs
   for (let attempt = 0; attempt <= retries; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 800 * 2 ** (attempt - 1)))
+    if (attempt > 0) {
+      const backoff = 800 * 2 ** (attempt - 1)
+      if (Date.now() + backoff >= deadline) break
+      await new Promise(r => setTimeout(r, backoff))
+    }
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) break
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), WRITE_TIMEOUT_MS)
+    const timer = setTimeout(() => ctrl.abort(), Math.min(WRITE_TIMEOUT_MS, remaining))
     try {
       last = await run(ctrl.signal)
     } catch (e) {
@@ -72,5 +81,5 @@ export async function writeWithRetry<T>(
     }
     if (!last.error || !shouldRetry(last.error)) break
   }
-  return last!
+  return last ?? { data: null as T, error: { message: 'Save timed out' } }
 }

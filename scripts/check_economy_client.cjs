@@ -120,7 +120,8 @@ async function main() {
   assert.equal(attempts.at(-1).args.p_use_ticket, false, 'Replay original payment, not changed ticket availability')
   assert.equal(storage.size, 0)
   assert.equal(fridgeRefreshes, 1)
-  assert.equal(events.at(-1).detail.patch.coins, 450)
+  // A reward-indicator notification can follow the wallet update.
+  assert.equal(events.filter(event => event.type === 'eren:profile-updated').at(-1).detail.patch.coins, 450)
 
   const hook = render()
   const first = hook.pullSingle('food')

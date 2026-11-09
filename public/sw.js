@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v35-vet-cottage-2026-11-02'
+const SW_VERSION = 'v36-image-refresh-2026-11-09'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -23,6 +23,30 @@ const SW_VERSION = 'v35-vet-cottage-2026-11-02'
 // fills. After that a worker bump costs nothing.
 const IMAGE_ASSET_EPOCH = 'a1'
 const IMAGE_CACHE = `eren-images-${IMAGE_ASSET_EPOCH}`
+const IMAGE_REFRESH_MS = 5 * 60 * 1000
+const imageRefreshes = new Map()
+
+function refreshImage(request, cache) {
+  const key = request.url
+  const previous = imageRefreshes.get(key)
+  if (previous && Date.now() - previous.at < IMAGE_REFRESH_MS) return previous.promise
+  const promise = fetch(request).then(res => {
+    if (res && res.ok) return cache.put(request, res.clone())
+  }).catch(() => { /* Cached art remains available while offline. */ })
+  imageRefreshes.set(key, { at: Date.now(), promise })
+  return promise
+}
+
+async function precacheMissing(cache, urls) {
+  let next = 0
+  // Leave bandwidth for the room the player is actually opening.
+  await Promise.all(Array.from({ length: Math.min(4, urls.length) }, async () => {
+    while (next < urls.length) {
+      const url = urls[next++]
+      await cache.add(url).catch(() => null)
+    }
+  }))
+}
 
 // Entries that must be re-fetched on every install rather than kept because
 // they are already present. `/offline.html` is app shell, not art: it has no
@@ -96,7 +120,7 @@ self.addEventListener('install', e => {
       )
       // Individually, never addAll: that call is atomic, so one renamed or
       // 404ing asset rejects the whole batch and leaves the rest uncached.
-      await Promise.all(wanted.map(url => cache.add(url).catch(() => null)))
+      await precacheMissing(cache, wanted)
     })
   )
 })
@@ -147,17 +171,13 @@ self.addEventListener('fetch', event => {
   }
 
   if (!/\.(png|jpg|jpeg|webp|gif|svg)$/i.test(url.pathname)) return
-  event.respondWith(
-    caches.open(IMAGE_CACHE).then(async cache => {
+  let refresh = Promise.resolve()
+  const response = caches.open(IMAGE_CACHE).then(async cache => {
       const cached = await cache.match(event.request)
       if (cached) {
-        // Refresh in the background so a new art file replaces the cached one
-        // next time without forcing the user to wait.
-        event.waitUntil(
-          fetch(event.request).then(res => {
-            if (res && res.ok) cache.put(event.request, res.clone())
-          }).catch(() => { /* offline — keep cached copy */ })
-        )
+        // Preloaders, CSS backgrounds and sprites can request the same image
+        // together. Refresh once per URL/window, not once per consumer.
+        refresh = refreshImage(event.request, cache)
         return cached
       }
       try {
@@ -172,7 +192,8 @@ self.addEventListener('fetch', event => {
         return fallback || Response.error()
       }
     })
-  )
+  event.respondWith(response)
+  event.waitUntil(response.then(() => refresh).catch(() => {}))
 })
 
 const scheduled = new Map()
