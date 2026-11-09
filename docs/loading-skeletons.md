@@ -35,6 +35,16 @@ Validation:
 - `npx tsc --noEmit` and production build (dummy public Supabase build settings;
   no local `.env.local` was present, and no live login was tested).
 
-These tests are not browser layout evidence. Review the local loading gallery
-at `/skin-lab/loading` at 390x844 and 360x740 before approving a visual push.
+Browser review used the real shared components in the isolated local preview
+at 390x844 and 360x740. All 24 gallery destinations plus kitchen, bedroom and
+bathroom room layouts passed horizontal-overflow checks, with one loading
+status each. Screenshots are in the ignored directory
+`review-pictures/loading-2026-11-09/` (54 skeleton captures, a loaded gacha and
+the gallery). A loaded gacha had no remaining skeletons, all four original
+backgrounds, enabled pull controls and no browser console errors. No pull or
+other hosted write was triggered. The viewport override was reset afterward.
+
+The gallery is `/skin-lab/loading` on the local preview server, not a production
+debug route. This is component/preview evidence, not a live signed-in navigation
+or network-throttling test. Owner approval is still needed for a visual push.
 Skeletons improve feedback, not the underlying database or network latency.
