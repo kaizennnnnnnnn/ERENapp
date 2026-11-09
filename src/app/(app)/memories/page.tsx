@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
@@ -390,11 +392,7 @@ export default function MemoriesPage() {
       )}
 
       {/* ── Loading (also covers a persistent outage; foreground retries) ── */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-14">
-          <p className="font-pixel text-gray-400" style={{ fontSize: 8 }}>LOADING…</p>
-        </div>
-      )}
+{loading && memories.length === 0 && <SkeletonContent layout="photos" label="Loading memories" />}
 
       {/* ── Empty state ── */}
       {!loading && memories.length === 0 && (

@@ -1,5 +1,6 @@
 'use client'
 import { foodActionError, type FoodActionResult } from '@/lib/foodActions'
+import ArtworkSkeleton from '@/components/loading/ArtworkSkeleton'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EREN'S BAKERY — top-level shop page where Eren sells cakes.
@@ -286,6 +287,7 @@ export default function BakeryPage() {
 
   return (
     <div className="fixed inset-0 z-40 overflow-hidden select-none game-shell">
+      <ArtworkSkeleton src={shopSrc} path="/bakery" />
 
       {/* ══ BLURRED FILL ══ soft surround so the full picture needs no bare bars. */}
       <div className="absolute inset-0" style={{

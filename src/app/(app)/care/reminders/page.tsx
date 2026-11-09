@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
@@ -284,11 +286,7 @@ export default function RemindersPage() {
       )}
 
       {/* ── Loading (also covers a persistent outage; foreground retries) ── */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-16">
-          <p className="text-gray-400 font-medium">Loading…</p>
-        </div>
-      )}
+{loading && reminders.length === 0 && <SkeletonContent layout="settings" label="Loading reminders" />}
 
       {/* ── Empty state ── */}
       {!loading && reminders.length === 0 && (

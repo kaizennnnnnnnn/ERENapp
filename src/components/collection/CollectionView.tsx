@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 // ─── CollectionView ──────────────────────────────────────────────────────────
 // The gacha collection: every outfit and every snack, found or not. Sibling
 // screen to the Closet, so it wears the same Meadow clothes: the Me page's
@@ -141,9 +143,7 @@ export default function CollectionView({
 
       {/* ── The shelves ── */}
       {!ready ? (
-        <p role="status" style={{ margin: '48px 0', textAlign: 'center', fontSize: 14, fontWeight: 600, color: M.text2 }}>
-          Loading your collection...
-        </p>
+<SkeletonContent layout="photos" label="Loading your collection" />
       ) : tab === 'skin' ? (
         SKIN_SECTIONS.map(sec => {
           const rows = items.filter(sec.match)

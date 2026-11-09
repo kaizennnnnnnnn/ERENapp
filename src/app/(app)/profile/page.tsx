@@ -1,5 +1,7 @@
 'use client'
 
+import { PageSkeleton } from '@/components/loading/LoadingSkeleton'
+
 // ─── Me ──────────────────────────────────────────────────────────────────────
 // The Meadow "Me" tab (board A2). This file is the data half: it reads the
 // household, the stats, the time and the month's moods, and hands plain props
@@ -24,7 +26,7 @@ import { catIdentityFromStats, ownCoatLabel, SEX_LABELS } from '@/lib/catIdentit
 import { catText, CLASSIC_CAT_WORDS, type CatWords } from '@/lib/catWords'
 import { moodDateKey } from '@/lib/moods'
 import { playSound } from '@/lib/sounds'
-import { M, MeadowPage, PERSON, personColor, type MeadowIconName } from '@/components/meadow'
+import { M, PERSON, personColor, type MeadowIconName } from '@/components/meadow'
 import type { MoodCalendarDay } from '@/components/MoodCalendar'
 import type { AchievementId, UserMood } from '@/types'
 import ProfileView, { type AchievementItem, type ProfileViewProps } from './ProfileView'
@@ -183,7 +185,7 @@ export default function ProfilePage() {
   // Every hook is above this line: `loading` is true on the first render of
   // every visit, and a hook below an early return crashes the page.
   if (loading || !profile || !user) {
-    return <MeadowPage ground="me" title="Me"><span /></MeadowPage>
+return <PageSkeleton path="/profile" />
   }
 
   // null until the stats row is in: catIdentityFromStats(null) is the

@@ -1,6 +1,7 @@
 'use client'
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ArtworkSkeleton from '@/components/loading/ArtworkSkeleton'
 import { useRouter } from 'next/navigation'
 import { useGacha } from '@/hooks/useGacha'
 import { useInventory } from '@/hooks/useInventory'
@@ -378,6 +379,8 @@ export default function GachaPage() {
                   transform: `scale(${p.id === 'creatures' ? 1 : 1.12})`,
                 }} />
             </div>
+
+            <ArtworkSkeleton src={p.bg} path="/gacha" />
 
             {/* Dim veil — fades the machine out as it leaves center */}
             <div ref={el => { dimRefs.current[idx] = el }}

@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 // ─── ClosetView ──────────────────────────────────────────────────────────────
 // Presentational closet UI. The container (closet/page.tsx) owns all data + the
 // purchase/toast overlays; this component just renders and reports taps. Kept
@@ -281,9 +283,7 @@ export default function ClosetView({
 
       {/* ── The looks ── */}
       {!ready ? (
-        <p role="status" style={{ margin: '48px 0', textAlign: 'center', fontSize: 14, fontWeight: 600, color: M.text2 }}>
-          Loading your closet...
-        </p>
+<SkeletonContent layout="closet" label="Loading your closet" />
       ) : base.length === 0 ? (
         <Card style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
           <MeadowIcon name="crown" size={28} />

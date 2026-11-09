@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 // ─── Leaderboard ─────────────────────────────────────────────────────────────
 // The household's scoreboard, a Meadow sheet opened from the Arcade's week
 // strip and the playroom's Scores button. Two modes:
@@ -21,7 +23,6 @@ import { useCat } from '@/hooks/useCat'
 import { countGamesWon, SOLO_VARIETY_TARGET, SOLO_VARIETY_COINS } from '@/lib/gameRewards'
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
-import AnimatedEren from '@/components/AnimatedEren'
 import {
   Avatar, IconTile, M, MeadowIcon, Meter, PrimaryButton, RARITY_TAG, SecondaryButton, Segmented,
   Sheet, TINT, TYPE, GAME_ICON, GAME_TINT, PERSON, personColor, useSheetExit,
@@ -269,10 +270,7 @@ export default function Leaderboard({ onClose }: Props) {
           </SecondaryButton>
         </div>
       ) : loading ? (
-        <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
-          <AnimatedEren px={3} glow={false} />
-          <span style={{ fontSize: 14, fontWeight: 700, color: M.text2 }}>Loading scores</span>
-        </div>
+<SkeletonContent layout="rows" label="Loading scores" />
       ) : (
         <>
           {/* Last week's prize, still to collect. */}

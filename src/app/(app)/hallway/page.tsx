@@ -1,5 +1,7 @@
 'use client'
 
+import { PageSkeleton, SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 // ═════════════════════════════════════════════════════════════════════════════
 // /hallway — the Memory Wall
 //
@@ -66,7 +68,7 @@ export default function HallwayPage() {
 
   const back = { onClick: exit, label: 'Back to home' }
   if (authLoading) {
-    return <MeadowPage ground="us" title="Hallway" back={back} withNav={false}><span /></MeadowPage>
+return <PageSkeleton path="/hallway" />
   }
 
   const counting = loading || coupleLoading
@@ -93,9 +95,7 @@ export default function HallwayPage() {
       </Card>
 
       {loading ? (
-        <Card padding="28px 18px" style={{ marginTop: 24 }}>
-          <p style={{ margin: 0, textAlign: 'center', fontSize: 15, fontWeight: 600, color: M.text2 }}>Loading the wall…</p>
-        </Card>
+        <div style={{ marginTop: 24 }}><SkeletonContent layout="photos" label="Loading the wall" /></div>
       ) : (
         <MemoryWall
           rows={frames}

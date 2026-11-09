@@ -1,5 +1,7 @@
 'use client'
 
+import { PageSkeleton } from '@/components/loading/LoadingSkeleton'
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 // The Meadow A4 board, pushed from Me (the gear, and the cat card's Edit).
 // This file is the data half: it reads the household row, keeps the switches'
@@ -33,7 +35,7 @@ import { requestNotificationPermission } from '@/lib/statNotifications'
 import { subscribeToPush } from '@/lib/pushSubscription'
 import { playSound } from '@/lib/sounds'
 import { catIdentityFromStats, saveCatIdentity, validateCatName, type CatIdentity } from '@/lib/catIdentity'
-import { MeadowPage, personColor } from '@/components/meadow'
+import { personColor } from '@/components/meadow'
 import SettingsView, {
   type NotifState, type Outcome, type PrefKey, type Prefs, type SettingsActions, type SettingsCat,
 } from './SettingsView'
@@ -190,7 +192,7 @@ export default function SettingsPage() {
   // Every hook is above this line: `loading` is true on the first render of
   // every visit, and a hook below an early return crashes the page.
   if (loading || !profile || !user) {
-    return <MeadowPage ground="settings" title="Settings" back={{ href: '/profile', label: 'Back to Me' }} withNav={false}><span /></MeadowPage>
+return <PageSkeleton path="/settings" />
   }
 
   const actions: SettingsActions = {

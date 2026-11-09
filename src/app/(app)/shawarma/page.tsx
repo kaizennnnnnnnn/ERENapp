@@ -1,5 +1,7 @@
 'use client'
 
+import ArtworkSkeleton from '@/components/loading/ArtworkSkeleton'
+
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useCare } from '@/contexts/CareContext'
 import { useAuth } from '@/hooks/useAuth'
@@ -80,6 +82,7 @@ export default function ShawarmaPage() {
       pointerEvents: phase === 'front' ? undefined : 'none',
       animation: phase === 'entering' ? `kioskPushIn ${ENTER_MS}ms cubic-bezier(0.5, 0, 0.75, 0) both` : undefined,
     }}>
+      <ArtworkSkeleton src={PIC.src} path="/shawarma" />
       <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url(${PIC.src})`, backgroundSize: 'cover',
         backgroundPosition: 'center', filter: 'blur(20px) brightness(0.4)', transform: 'scale(1.1)' }} />
       <div className="absolute top-0 inset-x-0 z-[15] pointer-events-none" style={{ height: bandH,

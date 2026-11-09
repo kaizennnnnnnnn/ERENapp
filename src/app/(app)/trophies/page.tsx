@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 // ═══════════════════════════════════════════════════════════════════════════
 // /trophies — the catnip shop.
 //
@@ -61,7 +63,8 @@ export default function TrophiesPage() {
         </span>
       }>
       <div style={{ marginTop: 16 }}>
-        {!authLoading && <TrophyShopView tab={tab} onTab={setTab} onBuy={setBuying} onUse={setUsing} />}
+{authLoading ? <SkeletonContent layout="collection" label="Loading the trophy shop" />
+          : <TrophyShopView tab={tab} onTab={setTab} onBuy={setBuying} onUse={setUsing} />}
       </div>
 
       {buying && <TrophyBuySheet item={buying} onClose={() => setBuying(null)} />}

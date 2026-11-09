@@ -25,7 +25,7 @@ import { isTooSleepy } from '@/lib/chatAllowance'
 import { playSound } from '@/lib/sounds'
 import TalkView from './TalkView'
 import MemorySheet from './MemorySheet'
-import { M } from '@/components/meadow'
+import { PageSkeleton } from '@/components/loading/LoadingSkeleton'
 import type { ErenMood } from '@/types'
 
 /** Header status, read off his real stats — the same mood the rest of the app
@@ -79,18 +79,7 @@ export default function TalkSurface({ onExit, onLoaded }: Props) {
     return () => clearTimeout(t)
   }, [savedTick])
 
-  // A light loader, on the chat's own white: the obsidian PageLoader flashed a
-  // dark screen in front of a white page every time the chat opened.
-  if (loading) {
-    return (
-      <div className="meadow-root fixed inset-0 flex flex-col items-center justify-center" style={{ background: '#FFFFFF', gap: 14 }}>
-        <img src="/erenGood.png" alt="" width={96} height={96}
-          style={{ objectFit: 'contain', imageRendering: 'auto', animation: 'talkLoadBreathe 2.4s ease-in-out infinite' }} />
-        <p role="status" style={{ margin: 0, fontSize: 15, fontWeight: 700, color: M.text2 }}>{cat.t('Finding {name}…')}</p>
-        <style>{`@keyframes talkLoadBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }`}</style>
-      </div>
-    )
-  }
+  if (loading && messages.length === 0) return <PageSkeleton path="/talk" />
 
   return (
     <>

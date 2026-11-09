@@ -11,6 +11,7 @@
 // widths.
 
 import ParlourTray from './ParlourTray'
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
 import ParlourMenu, { type ParlourGame } from './ParlourMenu'
 import type { JellyDef } from '@/lib/jellies'
 import { playSound } from '@/lib/sounds'
@@ -65,10 +66,10 @@ export default function ParlourView({
       )}
 
       {recovery}
-      <ParlourTray
+      {!loaded && !blocked ? <SkeletonContent layout="tray" label="Loading the Jelly tray" /> : <ParlourTray
         tray={tray} count={trayCount} size={traySize}
         supers={supers} fed={fed} goal={feedGoal} ownsSkin={ownsSkin}
-        busy={feeding} loading={!loaded} feedPending={feedPending} feedError={feedError} onFeed={onFeed} onOpenCloset={onOpenCloset} />
+        busy={feeding} loading={!loaded} feedPending={feedPending} feedError={feedError} onFeed={onFeed} onOpenCloset={onOpenCloset} />}
 
       <ParlourMenu games={games} loaded={loaded} onPlay={onPlay} />
     </MeadowPage>

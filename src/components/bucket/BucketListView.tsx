@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent } from '@/components/loading/LoadingSkeleton'
+
 // ─── BucketListView ──────────────────────────────────────────────────────────
 // The bucket list page, from plain props (the /bucket-list route wires the
 // data): how much of it you've done and the "Add a plan" button, then the open
@@ -109,6 +111,8 @@ export default function BucketListView({
           Add a plan
         </PrimaryButton>
       </Card>
+
+      {loading && total === 0 && <SkeletonContent layout="rows" label="Loading plans" />}
 
       {!loading && !missing && total === 0 && (
         <Card padding="20px 18px" style={{ marginTop: 24 }}>

@@ -7,6 +7,7 @@ import { resolveRoomSkin } from '@/lib/skins'
 import { ROOM_ART_DAY, ROOM_ART_DARK } from '@/lib/roomArt'
 import { foodDrag } from './foodDragFlag'
 import AnimatedEren from '@/components/AnimatedEren'
+import { PageSkeleton } from '@/components/loading/LoadingSkeleton'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
 import CurtainGlitter from '@/components/CurtainGlitter'
@@ -311,13 +312,6 @@ export default function CareSceneHost() {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0);    }
         }
-        @keyframes roomLoadDot {
-          0%, 100% { opacity: 0.25; }
-          50%      { opacity: 1; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .room-load-dot { animation: none !important; opacity: 0.6; }
-        }
       `}</style>
 
       {/* Dreamy "between rooms" backdrop — what shows in the gap as a room
@@ -339,30 +333,9 @@ export default function CareSceneHost() {
         </div>
       </div>
 
-      {/* Loading the room: the cat walking on the Meadow's soft ground, the
-          room's name, and three leaf dots. (The dots' keyframes used to sit in
-          a scoped styled-jsx block, which an inline style can't reach, so
-          they never blinked.) */}
+      {/* Match the room's HUD, furniture and controls while its assets decode. */}
       {!ready && !loadError && (
-        <div
-          role="status"
-          className="meadow-root fixed inset-0 z-50 flex flex-col items-center justify-center"
-          style={{ background: M.soft, gap: 14 }}
-        >
-          <AnimatedEren px={4} glow={false} />
-          <span style={{ fontFamily: FONT_ROUNDED, fontSize: 17, fontWeight: 800, color: M.text }}>
-            {SCENE_LABELS[activeScene]}
-          </span>
-          <span aria-hidden className="flex items-center" style={{ gap: 6 }}>
-            {[0, 1, 2].map(i => (
-              <span key={i} className="room-load-dot" style={{
-                width: 7, height: 7, borderRadius: 999, background: M.leaf,
-                animation: `roomLoadDot 1s ease-in-out ${i * 0.15}s infinite`,
-              }} />
-            ))}
-          </span>
-          <span className="sr-only">Loading</span>
-        </div>
+        <PageSkeleton scene={activeScene} label={`Loading ${SCENE_LABELS[activeScene]}`} />
       )}
 
       {/* Offline panel — replaces the broken-room render the user hit before.

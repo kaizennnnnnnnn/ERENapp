@@ -1,5 +1,7 @@
 'use client'
 
+import { SkeletonContent, SkeletonBlock } from '@/components/loading/LoadingSkeleton'
+
 // ─── The reward road ─────────────────────────────────────────────────────────
 // One reward per level, 100 of them (lib/levelRewards). The level circle in
 // the top bar opens it.
@@ -132,7 +134,7 @@ export default function RewardsPage() {
   if (!user || !profile) {
     return (
       <MeadowPage ground="me" title="Reward road" back={{ onClick: exit, label: 'Back to home' }} withNav={false}>
-        <p role="status" style={{ margin: '18px 8px 0', fontSize: 15, fontWeight: 600, color: M.text2 }}>Loading your level...</p>
+<SkeletonContent layout="rewards" label="Loading your level" />
       </MeadowPage>
     )
   }
@@ -217,7 +219,9 @@ export default function RewardsPage() {
 
         <div ref={statusRef} tabIndex={-1} style={{ outline: 'none' }}>
           {!claimedLoaded ? (
-            <p role="status" style={{ margin: 0, fontSize: 14, fontWeight: 600, color: M.text2 }}>Loading your rewards...</p>
+            <div role="status" aria-label="Loading your rewards" aria-busy="true">
+              <SkeletonBlock height={44} />
+            </div>
           ) : pendingTarget !== null ? (
             <PrimaryButton size="md" full busy={claiming} onClick={() => claimUpTo(pendingTarget)}
               icon={<MeadowIcon name="gift" size={20} color="#FFFFFF" />}>

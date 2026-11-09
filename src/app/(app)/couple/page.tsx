@@ -1,5 +1,7 @@
 'use client'
 
+import { PageSkeleton } from '@/components/loading/LoadingSkeleton'
+
 // ─── Us ──────────────────────────────────────────────────────────────────────
 // The Meadow "Us" tab (board A3). This file is the data half: it reads the
 // couple (useCouple), my streak (useTasks) and the cat (useErenStats), turns
@@ -187,7 +189,7 @@ export default function CouplePage() {
   // Every hook is above this line: `loading` is true on the first render of a
   // cold visit, and a hook below an early return would crash the page.
   if (loading || !user || !profile) {
-    return <MeadowPage ground="us" title="Us"><span /></MeadowPage>
+return <PageSkeleton path="/couple" />
   }
 
   const cat = catIdentityFromStats(stats)
