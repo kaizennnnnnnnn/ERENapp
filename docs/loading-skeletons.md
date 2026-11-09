@@ -90,3 +90,14 @@ seats and a 2x2 stat grid. The inline closet loader no longer repeats visible
 tabs, and collection shelves use the real three-column item layout.
 `check_loading_positions.cjs` checks these source/layout contracts. The isolated
 home comparison is `/skin-lab/loading?home=1&skin=classic`.
+
+Position review at 390x844 and 360x740 measured the real home and loader in
+the same isolated preview: stage, cat bottom, place-dock rectangle and tab-bar
+rectangle match. The visible cat placeholder clears the place dock at both
+sizes. The HUD starts at the same 64px anchor. Pure loading captures for home,
+profile, settings, closet and collection had no sideways overflow; the body
+begins at 118px on tab pages and 164px after a back-button/title header.
+Pictures are `position-*-{390,360}.jpg` plus
+`home-position-{loading,loaded}-{390,360}.jpg` in the ignored review directory.
+The comparison toggle is preview-only, and this adjustment does not change
+the startup splash, artwork, rewards or saved player data.

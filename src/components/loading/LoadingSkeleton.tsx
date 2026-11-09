@@ -238,7 +238,8 @@ export function PageSkeleton({ path = '/home', scene = 'home', label = 'Loading 
   const layout = loadingLayoutForPath(path)
   const route = path.split(/[?#]/)[0].replace(/\/$/, '') || '/home'
   const back = BACK_PAGES.has(route)
-  return <div className="eren-loading-page" data-layout={layout} data-scene={layout === 'room' ? scene : undefined} data-nav={TAB_PAGES.has(route) || undefined} data-embedded={embedded || undefined}>
+  const withNav = TAB_PAGES.has(route) && (layout !== 'room' || scene === 'home')
+  return <div className="eren-loading-page" data-layout={layout} data-scene={layout === 'room' ? scene : undefined} data-nav={withNav || undefined} data-embedded={embedded || undefined}>
     {layout !== 'room' && (back ? <div className="eren-skeleton-back-heading" aria-hidden="true">
       <div className="eren-skeleton-heading"><SkeletonBlock width={44} height={44} circle /><SkeletonBlock width={40} height={40} circle /></div>
       <SkeletonBlock width="42%" height={34} style={{ margin: '12px 0 0 8px' }} />

@@ -36,6 +36,10 @@ assert.match(fs.readFileSync('src/app/(app)/home/page.tsx','utf8'), /bottom: '10
 for (const route of ['/settings','/closet','/gacha/collection','/bucket-list','/hallway','/rewards','/jelly','/trophies']) assert.match(page(route), /class="eren-skeleton-back-heading"/)
 for (const route of ['/home','/profile','/couple','/games']) assert.match(page(route), /data-nav="true"/)
 for (const route of ['/settings','/closet','/gacha/collection','/games/paw-doku']) assert.doesNotMatch(page(route), /data-nav="true"/)
+for (const scene of ['feed','sleep','wash']) {
+  const html = renderToStaticMarkup(React.createElement(PageSkeleton, { scene }))
+  assert.doesNotMatch(html, /data-nav="true"|data-loading-anchor="home-tabs"/, 'Care overlays do not reserve the home tab bar')
+}
 assert.doesNotMatch(content('portrait').split('<style>')[0], /eren-skeleton-actions/, 'An inline closet loader must not repeat the visible tab row')
 assert.match(content('items'), /grid-template-columns:repeat\(3, minmax\(0, 1fr\)\)/)
 assert.equal((page('/profile').match(/width:60px;height:60px;border-radius:999px/g) || []).length, 2, 'Profile waits for the two real household seats')
