@@ -19,9 +19,12 @@ The overlay cannot intercept shop controls. It settles on image error as well
 as load, cancels stale callbacks and adds no minimum delay to cached images.
 It does not change artwork or add image downloads with new cache keys.
 
-The boot splash uses the destination skeleton, retains ready/busy claims and
-its eight-second safety exit, and no longer forces a 1.2-second minimum.
-The fade is 180ms and has a reduced-motion opt-out. All skeletons share a
+The branded startup splash is separate from page loading. The original
+animated Eren, title and dots were restored at the owner's request after the
+skeleton rollout. It plays once per app boot, retains ready/busy claims and
+its eight-second safety exit, and has the original 1.2-second opening beat and
+400ms fade. Public legal documents still skip it, and navigating within the
+app does not replay it. All skeletons share a
 two-second left-to-right shimmer through the grey shapes (updated at the
 owner's request on 2026-11-09). A clipped, non-interactive pseudo-element moves
 without resizing the placeholders. The kiosk uses a softer highlight. Shimmer

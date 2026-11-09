@@ -49,6 +49,7 @@ assert.equal(loadingLayoutForPath('/care/reminders'), 'settings')
 assert.equal(loadingLayoutForPath('/unknown-future-room'), 'room')
 
 // Exercise the actual boot component's effects with a deterministic clock.
+const NativeDate = Date
 function boot({ readyState = 'complete', pathname = '/home' } = {}) {
   let phase = 'playing', time = 0, next = 0
   const listeners = new Map(), timers = new Map(), effects = [], refs = []
@@ -61,12 +62,14 @@ function boot({ readyState = 'complete', pathname = '/home' } = {}) {
   const mocks = {
     react: { ...React, useState: () => [phase, value => { phase = value }], useRef: value => { const ref = { current: value }; refs.push(ref); return ref }, useEffect: fn => effects.push(fn) },
     'next/navigation': { usePathname: () => pathname },
+    './AnimatedEren': { default: () => React.createElement('canvas', { 'data-sprite': 'Eren' }) },
   }
   const component = require('./lib/load_ts.cjs')(mocks)('src/components/SplashScreen.tsx').default
   global.window = window
   global.document = { readyState }
+  global.Date = class extends NativeDate { static now() { return time } }
   const element = component()
-  const clean = effects.map(fn => fn()).filter(Boolean)
+  let clean = effects.map(fn => fn()).filter(Boolean)
   function advance(ms) {
     const end = time + ms
     while (true) {
@@ -76,14 +79,29 @@ function boot({ readyState = 'complete', pathname = '/home' } = {}) {
     }
     time = end
   }
-  return { element, advance, emit: event => listeners.get(event)?.(), phase: () => phase, cleanup: () => { clean.forEach(fn => fn()); assert.equal(listeners.size, 0); assert.equal(timers.size, 0) } }
+  const clearEffects = () => { clean.forEach(fn => fn()); assert.equal(listeners.size, 0); assert.equal(timers.size, 0) }
+  return { element, advance, emit: event => listeners.get(event)?.(), phase: () => phase,
+    restart: () => { clearEffects(); clean = effects.map(fn => fn()).filter(Boolean) },
+    cleanup: () => { clearEffects(); global.Date = NativeDate },
+  }
 }
 let b = boot(); b.emit('eren:app-busy'); b.advance(400); assert.equal(b.phase(), 'playing')
-b.emit('eren:app-ready'); assert.equal(b.phase(), 'fading', 'Ready pages no longer pay a 1.2-second forced delay'); b.cleanup()
-b = boot(); b.advance(399); assert.equal(b.phase(), 'playing'); b.advance(1); assert.equal(b.phase(), 'fading'); b.cleanup()
+b.emit('eren:app-ready'); b.advance(799); assert.equal(b.phase(), 'playing'); b.advance(1); assert.equal(b.phase(), 'fading', 'Original opening beat remains visible for 1.2 seconds'); b.cleanup()
+b = boot(); b.advance(400); assert.equal(b.phase(), 'playing'); b.advance(800); assert.equal(b.phase(), 'fading'); b.cleanup()
 b = boot(); b.emit('eren:app-busy'); b.advance(8000); assert.equal(b.phase(), 'fading', 'Safety exit remains'); b.cleanup()
-b = boot({ readyState: 'loading' }); b.advance(500); assert.equal(b.phase(), 'playing'); b.emit('load'); b.advance(400); assert.equal(b.phase(), 'fading'); b.cleanup()
+b = boot({ readyState: 'loading' }); b.advance(500); assert.equal(b.phase(), 'playing'); b.emit('load'); b.advance(400); assert.equal(b.phase(), 'playing'); b.advance(300); assert.equal(b.phase(), 'fading'); b.cleanup()
 b = boot({ pathname: '/privacy' }); assert.equal(b.element, null); b.cleanup()
+b = boot(); b.emit('eren:app-busy'); b.advance(2000); b.emit('eren:app-ready'); assert.equal(b.phase(), 'fading', 'A late ready signal does not add another minimum wait'); b.cleanup()
+b = boot(); b.emit('eren:app-ready'); b.restart(); b.emit('eren:app-ready'); b.advance(1200); assert.equal(b.phase(), 'fading', 'StrictMode effect replay keeps a working minimum timer'); b.cleanup()
+b = boot(); b.emit('eren:app-ready'); b.advance(500); b.emit('eren:app-ready'); b.advance(700); assert.equal(b.phase(), 'fading', 'Duplicate readiness cannot extend boot'); b.cleanup()
+b = boot(); b.emit('eren:app-ready'); b.cleanup()
+b = boot()
+const bootMarkup = renderToStaticMarkup(b.element)
+assert.match(bootMarkup, /eren-boot-splash/)
+assert.match(bootMarkup, /<canvas/)
+assert.match(bootMarkup, />EREN<\/h1>/)
+assert.doesNotMatch(bootMarkup, /eren-loading-page|eren-skeleton-block/)
+b.cleanup()
 const splash = fs.readFileSync(path.join(root, 'src/components/SplashScreen.tsx'), 'utf8')
 const ast = ts.createSourceFile('SplashScreen.tsx', splash, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 let fadeEffect
@@ -96,7 +114,7 @@ let finished = false, cancelled = false, delay, callback
 const cleanupFade = new Function('phase', 'window', 'setPhase', `return (${fadeEffect})()`)(
   'fading', { setTimeout: (fn, ms) => { callback = fn; delay = ms; return 1 }, clearTimeout: () => { cancelled = true } }, value => { finished = value === 'done' },
 )
-assert.equal(delay, 180); callback(); assert.equal(finished, true); cleanupFade(); assert.equal(cancelled, true)
+assert.equal(delay, 400); callback(); assert.equal(finished, true); cleanupFade(); assert.equal(cancelled, true)
 delete global.window; delete global.document
 
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
@@ -110,4 +128,4 @@ assert.match(read('src/components/Leaderboard.tsx'), /loading && loadFailed \?/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /!ready && !loadError &&/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /loadError &&/)
 // TypeScript also verifies every route import; these checks cover rendering and guards, not browser layout.
-console.log(`Loading skeletons passed: ${routes.length} destination boundaries, 21 layouts, 4 game boards, 5 boot lifecycle cases, cached-data/error guards.`)
+console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 21 layouts, 4 game boards, branded startup restored, 10 boot lifecycle/render cases, cached-data/error guards.`)
