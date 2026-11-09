@@ -3,9 +3,11 @@
 import { useCat } from '@/hooks/useCat'
 import { MeadowIcon, PrimaryButton } from '@/components/meadow'
 
-type SleepState = 'tuck' | 'tucking' | 'wake' | 'waking'
+type SleepState = 'tuck' | 'tucking' | 'wake' | 'waking' | 'recover' | 'recovering'
 const LABEL: Record<SleepState, string> = {
   tuck: 'Tuck in', tucking: 'Tucking in...', wake: 'Wake up', waking: 'Waking up...',
+  recover: 'Recover bedroom save',
+  recovering: 'Confirming save...',
 }
 
 export default function SleepButton({ state, onClick, disabled }: {
@@ -13,11 +15,12 @@ export default function SleepButton({ state, onClick, disabled }: {
 }) {
   const cat = useCat()
   const night = state === 'tuck' || state === 'tucking'
-  const busy = state === 'tucking' || state === 'waking'
+  const recovering = state === 'recover' || state === 'recovering'
+  const busy = state === 'tucking' || state === 'waking' || state === 'recovering'
   return (
     <PrimaryButton size="md" full onClick={onClick} disabled={disabled || busy} busy={busy}
-      ariaLabel={cat.t(night ? 'Tuck {name} into bed' : 'Wake {name} up')}
-      icon={<MeadowIcon name={night ? 'moon' : 'sun'} size={20} color="#FFFFFF" />}
+      ariaLabel={recovering ? 'Recover bedroom save' : cat.t(night ? 'Tuck {name} into bed' : 'Wake {name} up')}
+      icon={<MeadowIcon name={recovering ? 'replay' : night ? 'moon' : 'sun'} size={20} color="#FFFFFF" />}
       style={{ maxWidth: 320, padding: '0 14px', gap: 10 }}>
       <span style={{ flex: '1 1 0', minWidth: 0 }}>{LABEL[state]}</span>
       <span aria-hidden style={{ position: 'relative', width: 32, height: 30, flexShrink: 0 }}>

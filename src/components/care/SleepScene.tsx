@@ -25,6 +25,7 @@ import SleepButton from '@/components/bedroom/SleepButton'
 import CareToast from '@/components/care/CareToast'
 import RoomWeather from '@/components/weather/RoomWeather'
 import { M, MeadowIcon, Meter, TYPE } from '@/components/meadow'
+import type { SleepAction } from '@/lib/sleepSessionSaves'
 
 interface Props { onClose: () => void }
 
@@ -40,7 +41,7 @@ const SLEEP_EREN_FALLBACK = {
 
 export default function SleepScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, applyAction, wakeUp } = useErenStats(profile?.household_id ?? null)
+  const { stats, finishSleepSession, sleepSaveBusy, sleepSavePending, sleepSaveError } = useErenStats(profile?.household_id ?? null)
   const sleepEren = useRoomEren('sleep', SLEEP_EREN_FALLBACK)
   const { completeTask } = useTasks()
   const wish = useWish()
@@ -54,34 +55,42 @@ export default function SleepScene({ onClose }: Props) {
   // full — see handleTuckIn.
   const [holdPose, setHoldPose] = useState(false)
   const [waking,  setWaking]  = useState(false)
+  const [recovering, setRecovering] = useState(false)
   const [toast,   setToast]   = useState<string | null>(null)
   const [toastGood, setToastGood] = useState(true)
   const [sleepIdx, setSleepIdx] = useState(0)   // which curled pose (0–3)
   const [showPoof, setShowPoof] = useState(false)
   const reaction = useErenReaction()
-  const actionLock = useRef(false)
+  const actionLock = useRef<symbol | null>(null)
   const mounted = useRef(true)
+  const saveEpoch = useRef(0)
+  const saveScope = useRef({ userId: user?.id, householdId: profile?.household_id })
+  if (saveScope.current.userId !== user?.id || saveScope.current.householdId !== profile?.household_id) saveScope.current = { userId: user?.id, householdId: profile?.household_id }
+  const currentSaveScope = saveScope.current
   const poseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const releasePose = useRef<(() => void) | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    mounted.current = true
+    mounted.current = true; actionLock.current = null
+    setTucking(false); setWaking(false); setRecovering(false); setHoldPose(false); setToast(null)
     return () => {
-      mounted.current = false
+      mounted.current = false; saveEpoch.current++
       if (poseTimer.current !== null) clearTimeout(poseTimer.current)
       releasePose.current?.()
       releasePose.current = null
       if (toastTimer.current !== null) clearTimeout(toastTimer.current)
     }
-  }, [])
+  }, [user?.id, profile?.household_id])
 
   function showResult(result: { success: boolean; message: string }) {
-    if (!mounted.current) return
+    const generation = saveEpoch.current
+    const active = () => mounted.current && saveEpoch.current === generation && saveScope.current === currentSaveScope
+    if (!active()) return
     setToastGood(result.success)
     setToast(result.message)
     if (toastTimer.current !== null) clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => { if (mounted.current) setToast(null) }, 3000)
+    toastTimer.current = setTimeout(() => { if (active()) setToast(null) }, 3000)
   }
 
   // Fall back to the module-level cache so the button reads WAKE UP
@@ -90,12 +99,8 @@ export default function SleepScene({ onClose }: Props) {
   const tuckedIn  = stats?.is_sleeping ?? getCachedIsSleeping() ?? false
   const sleepVal  = stats?.sleep_quality ?? 100
   const sleepColor = sleepVal > 50 ? M.leaf : sleepVal > 25 ? M.energy : M.danger
-  const busy      = tucking || waking
-  // What the ROOM shows. `tuckedIn` is the truth from the DB (and flips the
-  // moment applyAction's optimistic update lands, i.e. on tap); `showAsleep`
-  // is that truth held back until the tuck-in choreography has finished, so
-  // the sway→settle isn't cut off a frame after it starts. Everything visual
-  // reads showAsleep; only the logic reads tuckedIn.
+  const busy      = tucking || waking || recovering || sleepSaveBusy
+  // Confirmed sleep state waits for the existing tuck choreography to finish.
   const showAsleep = (tuckedIn || waking) && !holdPose
 
   // Roll a curled-pose pick on mount (covers a reload / remote-partner tuck-in
@@ -115,71 +120,44 @@ export default function SleepScene({ onClose }: Props) {
     }
   }, [showAsleep])
 
-  async function handleTuckIn() {
-    // `stats` matters as much as user.id: applyAction bails with "No stats
-    // loaded" when it's null, which is exactly the state for the first moment
-    // after opening the app. The button used to be live then, so an early tap
-    // played the full 1150ms of choreography and then quietly did nothing.
-    if (!user?.id || !stats || actionLock.current || tuckedIn) return
-    actionLock.current = true
-    setTucking(true)
-    setHoldPose(true)
-    // Re-roll which curled pose he'll fall asleep in, so it's random each time.
-    setSleepIdx(Math.floor(Math.random() * 4))
-    // Sleepy sway → settle squash while the eyes drift shut. The stats flip
-    // to is_sleeping after applyAction, which keeps him settled + lids-closed
-    // from then on (so a partner's remote tuck-in lands the same resting pose
-    // with no choreography).
-    reaction.play([
-      { name: 'sway',   ms: 500, onEnter: () => playSound('care_sleep') },
-      { name: 'settle', ms: 700 },
-    ])
-    // Fire the write NOW so it runs UNDER the choreography instead of queueing
-    // behind it. This used to be `await sleep(1150)` and only then
-    // applyAction, which made the cost 1150ms PLUS a round trip — and a round
-    // trip here is not always quick: writeWithRetry allows 3 attempts at a
-    // 6s timeout with 800/1600ms backoff, so a bad connection could pin TUCK
-    // IN for over twenty seconds. WashScene never had the problem because it
-    // starts its write immediately and lets its own animation cover the
-    // latency, which is why washing felt instant and this didn't.
-    //
-    // Overlapping is safe: applyAction writes absolute values (not deltas),
-    // and holdPose keeps the room showing the awake pose until the
-    // choreography is done, so the optimistic is_sleeping can't cut it short.
-    // Observe failures immediately, even while the tuck-in pose is still playing.
-    const write = (async () => {
-      try { return await applyAction(user.id, 'sleep') }
-      catch { return { success: false, message: 'Could not tuck in. Please try again.' } }
-    })()
-    try {
-      await new Promise<void>(resolve => {
+  async function handleSleepAction(action: SleepAction, recover = false) {
+    const generation = saveEpoch.current, token = Symbol('bedroom-save')
+    const active = () => mounted.current && saveEpoch.current === generation && saveScope.current === currentSaveScope
+    if (!user?.id || !stats || stats.household_id !== profile?.household_id || actionLock.current || sleepSaveBusy || !active()) return
+    if (!recover && (sleepSavePending || (action === 'tuck' ? tuckedIn : !tuckedIn))) return
+    actionLock.current = token
+    if (recover) setRecovering(true)
+    else if (action === 'tuck') setTucking(true)
+    else setWaking(true)
+    const animateTuck = !recover && action === 'tuck'
+    let poseFinished = Promise.resolve()
+    if (animateTuck) {
+      setHoldPose(true); setSleepIdx(Math.floor(Math.random() * 4))
+      reaction.play([{ name: 'sway', ms: 500, onEnter: () => playSound('care_sleep') }, { name: 'settle', ms: 700 }])
+      poseFinished = new Promise<void>(resolve => {
         releasePose.current = resolve
         poseTimer.current = setTimeout(() => { poseTimer.current = null; releasePose.current = null; resolve() }, 1150)
       })
-      if (mounted.current) setHoldPose(false)
+    }
+    // Networking starts under the choreography; recovery never waits for it again.
+    const write = finishSleepSession(action, recover).catch(() => ({ success: false, changed: false, action, isSleeping: undefined, message: 'Could not confirm this bedroom save. Please try again.' }))
+    try {
+      await poseFinished
+      if (active()) setHoldPose(false)
       const result = await write
-      if (result.success) completeTask('daily_sleep')
+      if (result.success && result.changed && result.action === 'tuck') void completeTask('daily_sleep')
+      if (!active()) return
+      if (!recover && action === 'wake' && result.success && result.changed && result.isSleeping === false) reaction.play([{ name: 'wake', ms: 1800, onEnter: () => playSound('care_sleep') }])
       showResult(result)
     } finally {
-      actionLock.current = false
-      if (mounted.current) { setTucking(false); setHoldPose(false) }
+      if (actionLock.current === token) actionLock.current = null
+      if (active()) { setTucking(false); setWaking(false); setRecovering(false); setHoldPose(false) }
     }
   }
 
+  async function handleTuckIn() { await handleSleepAction('tuck') }
   async function handleWakeUp() {
-    if (!user?.id || !stats || actionLock.current || !tuckedIn) return
-    actionLock.current = true
-    setWaking(true)
-    try {
-      const result = await wakeUp()
-      if (mounted.current && result.success) reaction.play([{ name: 'wake', ms: 1800, onEnter: () => playSound('care_sleep') }])
-      showResult(result)
-    } catch {
-      showResult({ success: false, message: 'Could not wake up. Please try again.' })
-    } finally {
-      actionLock.current = false
-      if (mounted.current) setWaking(false)
-    }
+    await handleSleepAction('wake')
   }
 
   return (
@@ -327,7 +305,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      {toast && <CareToast msg={toast} ok={toastGood} />}
+      {!busy && (toast || sleepSavePending) && <CareToast msg={toast ?? sleepSaveError ?? 'Your last bedroom save needs confirmation.'} ok={toast ? toastGood : !sleepSaveError} />}
 
       {/* ══ BOTTOM UI ══ */}
       <div className="meadow-root absolute inset-x-0 flex flex-col items-center gap-3 px-6 z-20" style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
@@ -341,9 +319,9 @@ export default function SleepScene({ onClose }: Props) {
         </div>
 
         <SleepButton
-          state={waking ? 'waking' : tucking ? 'tucking' : showAsleep ? 'wake' : 'tuck'}
-          disabled={busy || !stats}
-          onClick={() => { playSound('ui_tap'); tuckedIn ? handleWakeUp() : handleTuckIn() }}
+          state={recovering || sleepSaveBusy && sleepSavePending ? 'recovering' : waking ? 'waking' : tucking || sleepSaveBusy ? 'tucking' : sleepSavePending ? 'recover' : showAsleep ? 'wake' : 'tuck'}
+          disabled={busy || !stats || stats.household_id !== profile?.household_id}
+          onClick={() => { playSound('ui_tap'); if (sleepSavePending) void handleSleepAction(sleepSavePending, true); else if (tuckedIn) void handleWakeUp(); else void handleTuckIn() }}
         />
       </div>
 

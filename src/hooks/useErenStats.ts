@@ -16,6 +16,7 @@ import { pendingFoodAction, saveFoodAction, type FoodAction, type FoodActionResu
 import { pendingPlaySession, savePlaySession, mergePlayStats, playSessionError, type PlaySessionSave } from '@/lib/playSessionSaves'
 import { onForeground } from '@/lib/onForeground'
 import { pendingWashSession, saveWashSession, mergeWashStats, washSessionError, type WashSessionSave } from '@/lib/washSessionSaves'
+import { pendingSleepSession, saveSleepSession, mergeSleepStats, sleepSessionError, type SleepSessionSave, type SleepAction } from '@/lib/sleepSessionSaves'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -347,6 +348,20 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     setFoodActionRetry(userId && householdId ? pendingFoodAction(userId, householdId) : null)
   }, [userId, householdId])
 
+  const sleepScope = useRef({ householdId, userId })
+  if (sleepScope.current.userId !== userId || sleepScope.current.householdId !== householdId) sleepScope.current = { householdId, userId }
+  const currentSleepScope = sleepScope.current
+  const sleepEpoch = useRef(0), sleepMounted = useRef(true), sleepLock = useRef<symbol | null>(null)
+  const [sleepSaveBusy, setSleepSaveBusy] = useState(false)
+  const [sleepSavePending, setSleepSavePending] = useState<SleepAction | null>(null)
+  const [sleepSaveIssue, setSleepSaveIssue] = useState<{ userId: string; householdId: string; message: string } | null>(null)
+  useEffect(() => {
+    sleepMounted.current = true; sleepLock.current = null; setSleepSaveBusy(false); setSleepSaveIssue(null)
+    const sync = () => setSleepSavePending(userId && householdId ? pendingSleepSession(userId, householdId)?.action ?? null : null)
+    sync(); const off = onForeground(sync)
+    return () => { sleepMounted.current = false; sleepEpoch.current++; off() }
+  }, [userId, householdId])
+
   const runFoodAction = useCallback(async (action: FoodAction, recover = false): Promise<FoodActionResult> => {
     if (foodScope.current.userId !== userId || foodScope.current.householdId !== householdId) return { ok: false, reason: 'household_changed' }
     if (!userId || !householdId || statsRef.current?.household_id !== householdId) return { ok: false, reason: 'not_ready' }
@@ -628,6 +643,36 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     }
   }, [userId, householdId, currentWashScope, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const finishSleepSession = useCallback(async (action: SleepAction, recover = false): Promise<{ success: boolean; message: string; changed?: boolean; action?: SleepAction; isSleeping?: boolean }> => {
+    const generation = sleepEpoch.current
+    const active = () => sleepMounted.current && sleepEpoch.current === generation && sleepScope.current === currentSleepScope
+    const failure = (reason?: string) => ({ success: false, message: sleepSessionError(reason) })
+    if (!userId || !householdId || !active()) return failure('session_changed')
+    if (statsRef.current?.household_id !== householdId) return failure('loading')
+    if (sleepLock.current) return failure('busy')
+    const token = Symbol('sleep-session'); sleepLock.current = token; setSleepSaveBusy(true); setSleepSaveIssue(null)
+    try {
+      const response = await saveSleepSession(supabase, userId, householdId, action, recover)
+      if (!active()) return failure('session_changed')
+      if (!response.ok) {
+        setSleepSaveIssue({ userId, householdId, message: sleepSessionError(response.reason) })
+        return failure(response.reason)
+      }
+      const saved = response as SleepSessionSave
+      statsRef.current = mergeSleepStats(statsRef.current, saved.stats)
+      setStats(prev => mergeSleepStats(prev, saved.stats))
+      if (saved.changed && saved.action === 'tuck') window.dispatchEvent(new CustomEvent('eren:my-action', { detail: { household_id: householdId, user_id: userId, action_type: 'sleep' } }))
+      return { success: true, changed: saved.changed, action: saved.action, isSleeping: saved.stats.is_sleeping,
+        message: saved.changed ? saved.action === 'tuck' ? 'Bedtime saved!' : 'Wake-up saved!' : saved.action === 'tuck' ? 'Already tucked in.' : 'Already awake.' }
+    } catch {
+      if (active()) setSleepSaveIssue({ userId, householdId, message: sleepSessionError() })
+      return failure()
+    } finally {
+      if (sleepLock.current === token) sleepLock.current = null
+      if (active()) { setSleepSaveBusy(false); setSleepSavePending(pendingSleepSession(userId, householdId)?.action ?? null) }
+    }
+  }, [userId, householdId, currentSleepScope]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const applyAction = useCallback(async (userId: string, action: ActionType): Promise<{ success: boolean; message: string }> => {
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
     const cfg = ACTION_CONFIGS[action]
@@ -671,13 +716,8 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const wakeUp = useCallback(async (): Promise<{ success: boolean; message: string }> => {
-    if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
-    setStats(prev => prev ? { ...prev, is_sleeping: false } : prev)
-    const { error } = await writeWithRetry(signal =>
-      supabase.from('eren_stats').update({ is_sleeping: false, updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
-    if (error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
-    return { success: true, message: catText('{name} is awake!', catWordsFromRow(stats)) }
-  }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
+    return finishSleepSession('wake')
+  }, [finishSleepSession])
 
   /**
    * Feed one item. `buff` is the Monsta perk (lib/monstaBuffs.ts) — present
@@ -844,6 +884,9 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     runFoodAction, foodActionBusy, foodActionRetry,
     finishPlaySession, playSaveBusy,
     finishWashSession, washSaveBusy,
+    finishSleepSession, sleepSaveBusy,
+    sleepSavePending: sleepSavePending && userId && householdId ? pendingSleepSession(userId, householdId)?.action ?? null : null,
+    sleepSaveError: sleepSaveIssue?.userId === userId && sleepSaveIssue?.householdId === householdId ? sleepSaveIssue.message : null,
     washSavePending: washSavePending && Boolean(userId && householdId && pendingWashSession(userId, householdId)),
     washSaveError: washSaveIssue?.userId === userId && washSaveIssue?.householdId === householdId ? washSaveIssue.message : null,
     playSavePending: playSavePending && Boolean(userId && householdId && pendingPlaySession(userId, householdId)),

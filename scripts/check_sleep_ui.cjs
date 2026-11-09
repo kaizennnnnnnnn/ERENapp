@@ -15,10 +15,10 @@ mocks['@/components/meadow'] = {
 const { M } = mocks['@/components/meadow']
 const SleepButton = load('src/components/bedroom/SleepButton.tsx').default
 const CareToast = load('src/components/care/CareToast.tsx').default
-for (const state of ['tuck', 'tucking', 'wake', 'waking']) {
+for (const state of ['tuck', 'tucking', 'wake', 'waking', 'recover', 'recovering']) {
   const html = renderToStaticMarkup(React.createElement(SleepButton, { state, onClick() {} }))
-  assert.equal(/ disabled=""/.test(html), ['tucking', 'waking'].includes(state))
-  assert.match(html, /Mochi/)
+  assert.equal(/ disabled=""/.test(html), ['tucking', 'waking', 'recovering'].includes(state))
+  assert.match(html, state.startsWith('recover') ? /Recover bedroom save/ : /Mochi/)
   assert.match(html, /prefers-reduced-motion/)
   assert.doesNotMatch(html, /Press Start|font-pixel|gradient|text-shadow/)
   if (state.endsWith('ing')) assert.match(html, /aria-busy="true"/)
@@ -37,7 +37,7 @@ for (const ok of [true, false]) {
 
 const file = 'src/components/care/SleepScene.tsx', text = fs.readFileSync(file, 'utf8')
 const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-const names = ['showResult', 'handleTuckIn', 'handleWakeUp'], functions = new Map(), expressions = new Map()
+const names = ['showResult', 'handleSleepAction', 'handleTuckIn', 'handleWakeUp'], functions = new Map(), expressions = new Map()
 let cleanupEffect
 function visit(node) {
   if (ts.isFunctionDeclaration(node) && names.includes(node.name?.text)) functions.set(node.name.text, node.getText(source))
@@ -46,7 +46,7 @@ function visit(node) {
   ts.forEachChild(node, visit)
 }
 visit(source)
-assert.equal(functions.size, 3)
+assert.equal(functions.size, 4)
 assert.ok(cleanupEffect)
 const js = ts.transpileModule([...functions.values()].join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
 const cleanupJs = ts.transpileModule(`const setup = ${cleanupEffect}`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
@@ -66,15 +66,16 @@ function fixture() {
   const timers = new Map(), pending = [], rewards = [], reactions = [], writes = []
   let nextTimer = 0
   const env = {
-    user: { id: 'tester' }, stats: {}, tuckedIn: false, actionLock: ref(false), mounted: ref(true),
+    user: { id: 'tester' }, profile:{household_id:'home'}, stats: {household_id:'home'}, tuckedIn: false, actionLock: ref(null), mounted: ref(true),
+    sleepSaveBusy:false,sleepSavePending:null,saveEpoch:ref(0),saveScope:ref({}),
     poseTimer: ref(null), releasePose: ref(null), toastTimer: ref(null),
     playSound() {}, reaction: { play: beats => reactions.push(beats) }, completeTask: task => rewards.push(task),
     setTimeout(fn, ms) { timers.set(++nextTimer, { fn, ms }); return nextTimer },
     clearTimeout(id) { timers.delete(id) },
-    applyAction(user, action) { writes.push([user, action]); return new Promise((resolve, reject) => pending.push({ resolve, reject })) },
-    wakeUp() { writes.push(['wake']); return new Promise((resolve, reject) => pending.push({ resolve, reject })) },
+    finishSleepSession(action,recover) { writes.push([action,recover]); return new Promise((resolve, reject) => pending.push({ resolve, reject })) },
   }
-  for (const name of ['Tucking', 'HoldPose', 'SleepIdx', 'Waking', 'Toast', 'ToastGood']) {
+  env.currentSaveScope=env.saveScope.current
+  for (const name of ['Tucking', 'HoldPose', 'SleepIdx', 'Waking', 'Recovering', 'Toast', 'ToastGood']) {
     const key = name[0].toLowerCase() + name.slice(1)
     env['set' + name] = value => { assert.equal(env.mounted.current, true, 'No state writes after unmount'); env[key] = value }
   }
@@ -92,33 +93,44 @@ async function main() {
   }
   const f = fixture()
   const saving = f.api.handleTuckIn()
-  assert.deepEqual(f.writes, [['tester', 'sleep']], 'Start the write at tap time')
+  assert.deepEqual(f.writes, [['tuck', false]], 'Start the write at tap time')
   await f.api.handleTuckIn(); f.env.tuckedIn = true; await f.api.handleWakeUp(); assert.equal(f.writes.length, 1)
   f.finishPose(); await flush()
-  assert.equal(f.env.holdPose, false); assert.equal(f.env.tucking, true); assert.equal(f.env.actionLock.current, true)
-  f.pending.shift().resolve({ success: true, message: 'Saved' }); await saving
-  assert.deepEqual(f.rewards, ['daily_sleep']); assert.equal(f.env.actionLock.current, false); assert.equal(f.env.tucking, false)
+  assert.equal(f.env.holdPose, false); assert.equal(f.env.tucking, true); assert.ok(f.env.actionLock.current)
+  f.pending.shift().resolve({ success: true, changed:true,action:'tuck',isSleeping:true,message: 'Saved' }); await saving
+  assert.deepEqual(f.rewards, ['daily_sleep']); assert.equal(f.env.actionLock.current, null); assert.equal(f.env.tucking, false)
   assert.equal(f.env.toastGood, true)
   const wake = f.api.handleWakeUp(); await f.api.handleWakeUp(); assert.equal(f.writes.length, 2)
   assert.equal(f.reactions.length, 1, 'Wake stretch must wait for confirmation')
   f.pending.shift().resolve({ success: false, message: 'Try again' }); await wake
   assert.equal(f.reactions.length, 1); assert.equal(f.env.toastGood, false); assert.equal(f.env.waking, false)
-  const retry = f.api.handleWakeUp(); f.pending.shift().resolve({ success: true, message: 'Awake' }); await retry
+  const retry = f.api.handleWakeUp(); f.pending.shift().resolve({ success: true, changed:true,action:'wake',isSleeping:false,message: 'Awake' }); await retry
   assert.equal(f.reactions[1][0].name, 'wake'); assert.equal(f.rewards.length, 1)
-  f.env.wakeUp = async () => { throw Error('Offline') }
-  await f.api.handleWakeUp(); assert.equal(f.env.actionLock.current, false); assert.equal(f.env.waking, false); assert.match(f.env.toast, /try again/)
+  f.env.finishSleepSession = async () => { throw Error('Offline') }
+  await f.api.handleWakeUp(); assert.equal(f.env.actionLock.current, null); assert.equal(f.env.waking, false); assert.match(f.env.toast, /try again/)
   for (const reject of [true, false]) {
     const failed = fixture(), attempt = failed.api.handleTuckIn()
     if (reject) failed.pending.shift().reject(Error('Offline'))
     else failed.pending.shift().resolve({ success: false, message: 'Not saved' })
     await flush(); failed.finishPose(); await attempt
-    assert.equal(failed.env.toastGood, false); assert.equal(failed.env.actionLock.current, false); assert.equal(failed.rewards.length, 0)
+    assert.equal(failed.env.toastGood, false); assert.equal(failed.env.actionLock.current, null); assert.equal(failed.rewards.length, 0)
   }
   for (const action of ['tuck', 'wake']) {
     const leaving = fixture(); leaving.env.tuckedIn = action === 'wake'
     const attempt = action === 'wake' ? leaving.api.handleWakeUp() : leaving.api.handleTuckIn()
     leaving.cleanup(); leaving.pending.shift().resolve({ success: true, message: 'Saved after leaving' }); await attempt
-    assert.equal(leaving.timers.size, 0); assert.equal(leaving.env.actionLock.current, false)
+    assert.equal(leaving.timers.size, 0); assert.equal(leaving.env.actionLock.current, null)
+  }
+  for(const action of ['tuck','wake']){
+    const recovery=fixture();recovery.env.sleepSavePending=action
+    const pending=recovery.api.handleSleepAction(action,true);assert.equal(recovery.reactions.length,0);assert.equal(recovery.timers.size,0,'Recovery must not wait for tuck choreography')
+    recovery.pending.shift().resolve({success:true,changed:true,action,isSleeping:action==='tuck',message:'Recovered'});await pending
+    assert.equal(recovery.reactions.length,0);assert.equal(recovery.rewards.length,action==='tuck'?1:0);recovery.cleanup()
+  }
+  const noop=fixture(),attempt=noop.api.handleTuckIn();noop.finishPose();noop.pending.shift().resolve({success:true,changed:false,action:'tuck',isSleeping:true,message:'Already asleep'});await attempt;assert.equal(noop.rewards.length,0);noop.cleanup()
+  for(const mode of ['account','aba','newer']){
+    const stale=fixture();stale.env.tuckedIn=true;const attempt=stale.api.handleWakeUp();stale.env.saveScope.current={};if(mode!=='account')stale.env.saveEpoch.current++;if(mode==='newer')stale.env.actionLock.current=Symbol('next')
+    stale.pending.shift().resolve({success:true,changed:true,action:'wake',isSleeping:false,message:'Late'});await attempt;assert.equal(stale.env.toast,null);assert.equal(stale.reactions.length,0);if(mode==='newer')assert.ok(stale.env.actionLock.current);stale.cleanup()
   }
   f.cleanup(); assert.equal(f.timers.size, 0)
   console.log('Bedroom checks passed: Meadow controls/toasts, renamed cat, loading and zero-quality states, choreography/write overlap, same-tick locks, slow saves, failed/rejected retry, confirmed-only wake stretch, rewards and unmount cleanup.')
