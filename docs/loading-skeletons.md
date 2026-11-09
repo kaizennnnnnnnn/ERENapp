@@ -34,7 +34,8 @@ interactive controls. Existing errors are not replaced by skeletons.
 
 Validation:
 - `node scripts/check_loading_skeletons.cjs`: all 42 destinations, 21 layouts,
-  exact board cell counts, boot ready/busy/unclaimed/safety/fade/unmount paths,
+  exact board cell counts, ten branded-boot lifecycle/render cases including
+  minimum/late readiness, duplicate signals, StrictMode replay and timer cleanup,
   and source checks for cached-data/error guards.
 - `node scripts/check_artwork_skeleton.cjs`: image load/error/cache/URL-change
   and unmount behavior against the actual component effects.
@@ -54,3 +55,10 @@ The gallery is `/skin-lab/loading` on the local preview server, not a production
 debug route. This is component/preview evidence, not a live signed-in navigation
 or network-throttling test. Owner approval is still needed for a visual push.
 Skeletons improve feedback, not the underlying database or network latency.
+
+Startup restoration review: the actual SplashScreen was rendered in the local
+preview at 390x844 and 360x740. Both captures show the original animated Eren,
+title and dots; after readiness the splash was removed and the page skeleton
+remained. Screenshots are `startup-restored-{390,360}.jpg` and
+`startup-handoff-{390,360}.jpg` in the same ignored review directory. The local
+replay is `/skin-lab/loading?boot=1`. No production debug route was added.
