@@ -283,7 +283,7 @@ export default function ClosetView({
 
       {/* ── The looks ── */}
       {!ready ? (
-<SkeletonContent layout="closet" label="Loading your closet" />
+        <SkeletonContent layout="portrait" label="Loading your closet" />
       ) : base.length === 0 ? (
         <Card style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
           <MeadowIcon name="crown" size={28} />

@@ -143,7 +143,7 @@ export default function CollectionView({
 
       {/* ── The shelves ── */}
       {!ready ? (
-<SkeletonContent layout="photos" label="Loading your collection" />
+        <SkeletonContent layout="items" label="Loading your collection" />
       ) : tab === 'skin' ? (
         SKIN_SECTIONS.map(sec => {
           const rows = items.filter(sec.match)

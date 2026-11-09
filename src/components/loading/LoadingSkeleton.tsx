@@ -1,8 +1,12 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { HEADER_CLEARANCE, NAV_HEIGHT, NAV_PAGE_PADDING } from '@/components/meadow/tokens'
 
 export type LoadingLayout = 'room' | 'arcade' | 'game' | 'machine' | 'counter' | 'kiosk'
   | 'profile' | 'couple' | 'settings' | 'notes' | 'photos' | 'list' | 'collection'
-  | 'closet' | 'rewards' | 'chat' | 'form' | 'document' | 'rows' | 'parlour' | 'tray'
+  | 'closet' | 'rewards' | 'chat' | 'form' | 'document' | 'rows' | 'parlour' | 'tray' | 'portrait' | 'items'
+
+const TAB_PAGES = new Set(['/home', '/couple', '/games', '/profile'])
+const BACK_PAGES = new Set(['/settings', '/closet', '/gacha/collection', '/hallway', '/bucket-list', '/rewards', '/jelly', '/trophies'])
 
 export function loadingLayoutForPath(path: string): LoadingLayout {
   const route = path.split(/[?#]/)[0].replace(/\/$/, '') || '/'
@@ -67,7 +71,57 @@ function JellyTray() {
   </div><Lines /><SkeletonBlock height={48} /></Panel>
 }
 
+function HomeRoom() {
+  return <>
+    <div className="eren-home-stage" data-loading-anchor="home-stage">
+      <div className="eren-home-stats">
+        <SkeletonBlock width={48} height={48} circle style={{ position: 'absolute', left: 0, top: 0 }} />
+        <div className="eren-home-needs">
+          {Array.from({ length: 5 }, (_, i) => <SkeletonBlock key={i} height="auto" circle style={{ flex: '1 1 0', minWidth: 0, maxWidth: 32, aspectRatio: '1' }} />)}
+        </div>
+        <SkeletonBlock width={74} height={40} circle style={{ position: 'absolute', right: 0, top: 4 }} />
+      </div>
+      <div className="eren-home-hud" data-loading-anchor="home-hud">
+        <SkeletonBlock height={36} circle style={{ flex: 1, minWidth: 0 }} />
+        {Array.from({ length: 5 }, (_, i) => <SkeletonBlock key={i} width={36} height={36} circle />)}
+      </div>
+      <div className="eren-home-cat" data-loading-anchor="home-cat">
+        <SkeletonBlock width={160} height={176} style={{ borderRadius: 12 }} />
+      </div>
+      <div className="eren-home-places" data-loading-anchor="home-places">
+        {Array.from({ length: 4 }, (_, i) => <div key={i}>
+          <SkeletonBlock width={44} height={44} circle />
+          <SkeletonBlock width={i === 2 ? 66 : 48} height={20} />
+        </div>)}
+      </div>
+    </div>
+    <div className="eren-home-tabs" data-loading-anchor="home-tabs">
+      {Array.from({ length: 5 }, (_, i) => <div key={i}>
+        <SkeletonBlock width={22} height={22} /><SkeletonBlock width={30} height={8} />
+      </div>)}
+    </div>
+  </>
+}
+
+function Portrait() {
+  return <div className="eren-skeleton-closet"><Panel style={{ padding: 12, gap: 12 }}>
+    <SkeletonBlock height={248} /><Lines /><SkeletonBlock height={46} />
+  </Panel></div>
+}
+
+function ItemShelf({ top = 24 }: { top?: number }) {
+  return <div className="eren-skeleton-item-shelf">
+    <SkeletonBlock width="42%" height={12} style={{ margin: `${top}px 8px 12px` }} />
+    <div className="eren-skeleton-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+      {Array.from({ length: 6 }, (_, i) => <Panel key={i} style={{ padding: 6, gap: 6 }}>
+        <SkeletonBlock height="auto" style={{ aspectRatio: '1' }} /><SkeletonBlock width="74%" height={12} />
+      </Panel>)}
+    </div>
+  </div>
+}
+
 function Room({ scene }: { scene: string }) {
+  if (scene === 'home') return <HomeRoom />
   const table = ['feed', 'chemistry', 'vet', 'hospital', 'garden'].includes(scene)
   return <div className="eren-skeleton-room" data-scene={scene}>
     <div className="eren-skeleton-row" style={{ padding: 0 }}>
@@ -110,15 +164,17 @@ function Contents({ layout, path, scene }: { layout: LoadingLayout; path: string
     case 'parlour': return <><JellyTray /><Tiles count={2} /></>
     case 'tray': return <JellyTray />
     case 'kiosk': return <><SkeletonBlock width="66%" height={42} style={{ margin: '0 auto 30px' }} /><SkeletonBlock height={200} /><div className="eren-skeleton-actions"><SkeletonBlock height={108} /><SkeletonBlock height={108} /></div><Panel><Lines count={3} /><SkeletonBlock height={48} /></Panel></>
-    case 'profile': return <><Panel style={{ alignItems: 'center' }}><SkeletonBlock width={80} height={80} circle /><SkeletonBlock width="50%" height={24} /><SkeletonBlock width="36%" height={12} /><SkeletonBlock height={8} /></Panel><div className="eren-skeleton-grid">{[0, 1].map(i => <Panel key={i}><Lines count={3} /></Panel>)}</div><Rows count={3} /></>
+    case 'profile': return <><Panel style={{ padding: '20px 18px 16px', gap: 0 }}><div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>{[0, 1, 2].map(i => i === 1 ? <SkeletonBlock key={i} width="38%" height={36} circle style={{ marginTop: 12 }} /> : <div key={i} style={{ width: 64, display: 'grid', justifyItems: 'center', gap: 6 }}><SkeletonBlock width={60} height={60} circle /><SkeletonBlock width={44} height={16} /></div>)}</div><SkeletonBlock height={1} style={{ margin: '16px 0 14px' }} /><SkeletonBlock width={140} height={18} style={{ margin: '0 auto' }} /></Panel><div className="eren-skeleton-grid">{[0, 1, 2, 3].map(i => <Panel key={i}><SkeletonBlock width="62%" height={12} /><SkeletonBlock width={48} height={28} /><SkeletonBlock height={6} /></Panel>)}</div><div className="eren-skeleton-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', marginTop: 8 }}>{[0, 1, 2, 3].map(i => <div key={i} style={{ display: 'grid', justifyItems: 'center', gap: 10 }}><SkeletonBlock width={60} height={60} /><SkeletonBlock width="76%" height={24} /></div>)}</div></>
     case 'couple': return <><Panel><div className="eren-skeleton-row" style={{ justifyContent: 'space-around' }}><SkeletonBlock width={72} height={72} circle /><SkeletonBlock width={72} height={72} circle /></div><SkeletonBlock width="60%" height={20} style={{ margin: '0 auto' }} /><SkeletonBlock height={8} /></Panel><Rows count={2} /><Panel><Lines count={3} /><SkeletonBlock height={46} /></Panel></>
     case 'settings': return <><SkeletonBlock width="35%" height={12} /><Rows count={3} toggles /><SkeletonBlock width="28%" height={12} style={{ marginTop: 14 }} /><Rows count={4} toggles /></>
     case 'notes': return <><SkeletonBlock height={48} /><Tiles count={4} /></>
     case 'photos': return <Tiles photos count={6} />
     case 'list': return <><Panel><Lines /><SkeletonBlock height={8} /><SkeletonBlock height={48} /></Panel><Rows count={5} /></>
     case 'rows': return <Rows count={5} />
-    case 'closet': return <><SkeletonBlock height={40} /><div className="eren-skeleton-closet"><Panel><SkeletonBlock height={235} /><Lines /><SkeletonBlock height={46} /></Panel></div></>
-    case 'collection': return <><Panel><Lines /><SkeletonBlock height={8} /></Panel><div className="eren-skeleton-actions"><SkeletonBlock height={36} /><SkeletonBlock height={36} /><SkeletonBlock height={36} /></div><Tiles count={6} /></>
+    case 'closet': return <><SkeletonBlock width="36%" height={12} style={{ margin: '8px 8px 0' }} /><div className="eren-skeleton-actions">{[0, 1, 2, 3].map(i => <div key={i} style={{ flex: 1, display: 'grid', justifyItems: 'center', gap: 6 }}><SkeletonBlock width={60} height={60} /><SkeletonBlock width={46} height={12} /></div>)}</div><SkeletonBlock height={40} /><Portrait /></>
+    case 'portrait': return <Portrait />
+    case 'items': return <ItemShelf />
+    case 'collection': return <><Panel><Lines /><SkeletonBlock height={8} /></Panel><SkeletonBlock height={40} /><ItemShelf top={8} /></>
     case 'rewards': return <><Panel><div className="eren-skeleton-row"><SkeletonBlock width={64} height={64} circle /><Lines count={3} /></div><SkeletonBlock height={8} /></Panel><Rows count={5} /></>
     case 'chat': return <><div className="eren-skeleton-row"><SkeletonBlock width={44} height={44} circle /><Lines /><SkeletonBlock width={40} height={40} circle /></div><SkeletonBlock height={8} />{[0, 1, 2, 3].map(i => <SkeletonBlock key={i} width={i % 2 ? '64%' : '78%'} height={i % 2 ? 48 : 76} style={{ margin: i % 2 ? '8px 0 8px auto' : '8px 0', borderRadius: 8 }} />)}<SkeletonBlock height={48} style={{ marginTop: 'auto' }} /></>
     case 'form': return <><SkeletonBlock width={80} height={96} style={{ margin: '26px auto' }} /><SkeletonBlock width="60%" height={28} style={{ margin: '0 auto 24px' }} /><Panel><Lines /><SkeletonBlock height={48} /><Lines /><SkeletonBlock height={48} /><SkeletonBlock height={48} style={{ marginTop: 10 }} /></Panel></>
@@ -138,13 +194,26 @@ const STYLES = `
   .eren-skeleton-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .eren-skeleton-actions > .eren-skeleton-block { flex: 1; min-width: 0; }
   .eren-skeleton-board { display: grid; gap: 5px; margin: 30px 0 4px; }
-  .eren-skeleton-closet { width: 100%; max-width: 270px; margin: 10px auto; }
+  .eren-skeleton-closet { width: 272px; max-width: 100%; margin: 18px auto 0; }
   .eren-skeleton-machine { display: grid; grid-template-rows: 40px minmax(110px, 1fr) 90px; gap: 8px; flex: 1; min-height: 256px; padding: 0 20px; }
-  .eren-loading-page { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; overflow: hidden; background: #f4f4f1; padding: max(56px, calc(var(--safe-top, 0px) + 12px)) 16px 90px; }
+  .eren-loading-page { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; overflow: hidden; background: #f4f4f1; padding: max(56px, calc(var(--safe-top, 0px) + 12px)) 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
+  .eren-loading-page[data-nav="true"] { padding-bottom: ${NAV_PAGE_PADDING}; }
+  .eren-loading-page[data-layout="room"][data-scene="home"] { padding: 0; }
   .eren-loading-page[data-layout="kiosk"] { background: #191f1c; --skeleton-ink: #3b4840; --skeleton-panel: #252e28; --skeleton-shine: rgba(255,255,255,.12); }
   .eren-loading-page[data-embedded="true"] { position: absolute; }
   .eren-loading-page > .eren-skeleton-content { flex: 1; min-height: 0; }
   .eren-skeleton-heading { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; height: 44px; margin-bottom: 18px; }
+  .eren-skeleton-back-heading { flex-shrink: 0; margin-bottom: 18px; }
+  .eren-skeleton-back-heading > .eren-skeleton-heading { margin: 0; }
+  .eren-home-stage { position: absolute; top: 0; left: 0; right: 0; bottom: ${NAV_HEIGHT}; }
+  .eren-home-stats { position: absolute; top: calc(var(--safe-top, 0px) + 6px); left: 16px; right: 16px; height: 48px; }
+  .eren-home-needs { position: absolute; left: 82px; right: 82px; top: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 999px; background: #fff; }
+  .eren-home-hud { position: absolute; left: 16px; right: 16px; top: calc(var(--safe-top, 0px) + ${HEADER_CLEARANCE}px); height: 36px; display: flex; gap: 6px; }
+  .eren-home-cat { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); width: 200px; height: 200px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 16px; }
+  .eren-home-places { position: absolute; left: 0; right: 0; bottom: 8px; height: 70px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 0 16px; }
+  .eren-home-places > div { display: flex; align-items: center; flex-direction: column; gap: 6px; min-width: 0; }
+  .eren-home-tabs { position: absolute; bottom: 0; left: 0; right: 0; height: ${NAV_HEIGHT}; display: flex; gap: 0; padding: 6px 8px max(24px, env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #ece8e1; }
+  .eren-home-tabs > div { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; height: 50px; }
   .eren-skeleton-room { display: flex; flex-direction: column; min-height: 460px; height: 100%; }
   .eren-skeleton-needs { display: flex; justify-content: space-around; gap: 8px; margin: 24px 0 8px; }
   .eren-skeleton-room-stage { position: relative; flex: 1; min-height: 270px; border-bottom: 2px solid #e5e6e2; margin-bottom: 24px; }
@@ -167,8 +236,13 @@ export function PageSkeleton({ path = '/home', scene = 'home', label = 'Loading 
   path?: string; scene?: string; label?: string; embedded?: boolean
 }) {
   const layout = loadingLayoutForPath(path)
-  return <div className="eren-loading-page" data-layout={layout} data-embedded={embedded || undefined}>
-    {layout !== 'room' && <div className="eren-skeleton-heading" aria-hidden="true"><SkeletonBlock width="42%" height={26} /><SkeletonBlock width={40} height={40} circle /></div>}
+  const route = path.split(/[?#]/)[0].replace(/\/$/, '') || '/home'
+  const back = BACK_PAGES.has(route)
+  return <div className="eren-loading-page" data-layout={layout} data-scene={layout === 'room' ? scene : undefined} data-nav={TAB_PAGES.has(route) || undefined} data-embedded={embedded || undefined}>
+    {layout !== 'room' && (back ? <div className="eren-skeleton-back-heading" aria-hidden="true">
+      <div className="eren-skeleton-heading"><SkeletonBlock width={44} height={44} circle /><SkeletonBlock width={40} height={40} circle /></div>
+      <SkeletonBlock width="42%" height={34} style={{ margin: '12px 0 0 8px' }} />
+    </div> : <div className="eren-skeleton-heading" aria-hidden="true"><SkeletonBlock width="42%" height={26} /><SkeletonBlock width={40} height={40} circle /></div>)}
     <SkeletonContent layout={layout} path={path} scene={scene} label={label} />
   </div>
 }

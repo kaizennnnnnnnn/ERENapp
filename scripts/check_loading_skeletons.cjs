@@ -32,7 +32,7 @@ for (const page of routes) {
   assert.match(markup, /prefers-reduced-motion: reduce/)
   assert.equal(markup, renderToStaticMarkup(React.createElement(load(path.relative(root, fallback)).default)), 'Deterministic SSR, no random hydration mismatch')
 }
-for (const layout of ['room','arcade','game','machine','counter','kiosk','profile','couple','settings','notes','photos','list','collection','closet','rewards','chat','form','document','rows','parlour','tray']) {
+for (const layout of ['room','arcade','game','machine','counter','kiosk','profile','couple','settings','notes','photos','list','collection','closet','rewards','chat','form','document','rows','parlour','tray','portrait','items']) {
   const html = renderToStaticMarkup(React.createElement(SkeletonContent, { layout }))
   assert.ok((html.match(/eren-skeleton-block"/g) || []).length >= 4, layout)
   assert.match(html, /aria-hidden="true"/)
@@ -137,4 +137,4 @@ assert.match(read('src/components/Leaderboard.tsx'), /loading && loadFailed \?/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /!ready && !loadError &&/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /loadError &&/)
 // TypeScript also verifies every route import; these checks cover rendering and guards, not browser layout.
-console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 21 layouts, 4 game boards, premium startup, 11 boot lifecycle/render cases, cached-data/error guards.`)
+console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 23 layouts, 4 game boards, premium startup, 11 boot lifecycle/render cases, cached-data/error guards.`)

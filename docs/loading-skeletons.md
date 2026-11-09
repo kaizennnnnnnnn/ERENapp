@@ -37,7 +37,7 @@ hidden from accessibility, with one loading status per skeleton and no fake
 interactive controls. Existing errors are not replaced by skeletons.
 
 Validation:
-- `node scripts/check_loading_skeletons.cjs`: all 42 destinations, 21 layouts,
+- `node scripts/check_loading_skeletons.cjs`: all 42 destinations, 23 layouts,
   exact board cell counts, eleven branded-boot lifecycle/render cases including
   minimum/late readiness, duplicate signals, StrictMode replay and timer cleanup,
   and source checks for cached-data/error guards.
@@ -76,3 +76,17 @@ and no horizontal overflow at 360px. A normal ready signal removed the splash
 and left page skeletons intact (`startup-premium-handoff-360.jpg`). The old
 startup restoration is published; this presentation update remains local for
 owner review.
+
+Positioning follow-up: home now uses the actual living-room stage boundary
+(`NAV_HEIGHT`), the compact header at safe-top + 6px, the shortcut row at
+`HEADER_CLEARANCE`, the 200px cat anchor 10% above the stage floor, and the
+four 44px place buttons in their 70px dock. Its placeholder no longer borrows
+the enlarged care-room needs row or invents unrelated furniture blocks.
+The visible cat shape clears the dock and the five-tab bar has its own slot.
+
+Back-button pages now reserve their separate back row and title row; only the
+four tab pages reserve bottom-nav padding. Profile uses the two real household
+seats and a 2x2 stat grid. The inline closet loader no longer repeats visible
+tabs, and collection shelves use the real three-column item layout.
+`check_loading_positions.cjs` checks these source/layout contracts. The isolated
+home comparison is `/skin-lab/loading?home=1&skin=classic`.
