@@ -127,8 +127,9 @@ function Contents({ layout, path, scene }: { layout: LoadingLayout; path: string
 }
 
 const STYLES = `
-  @keyframes erenSkeletonPulse { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
-  .eren-skeleton-block { background: var(--skeleton-ink, #dedfdb); animation: erenSkeletonPulse 1.8s ease-in-out infinite; max-width: 100%; }
+  @keyframes erenSkeletonShimmer { 0%,10% { transform: translateX(-100%); } 90%,100% { transform: translateX(100%); } }
+  .eren-skeleton-block { position: relative; overflow: hidden; isolation: isolate; background: var(--skeleton-ink, #dedfdb); max-width: 100%; }
+  .eren-skeleton-block::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(100deg, transparent 20%, var(--skeleton-shine, rgba(255,255,255,.65)) 50%, transparent 80%); transform: translateX(-100%); animation: erenSkeletonShimmer 2s cubic-bezier(.4,0,.2,1) infinite; }
   .eren-skeleton-content { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .eren-skeleton-panel { display: flex; flex-direction: column; gap: 14px; padding: 16px; background: var(--skeleton-panel, #fff); border-radius: 8px; min-width: 0; }
   .eren-skeleton-lines { display: flex; flex-direction: column; gap: 9px; flex: 1; min-width: 0; }
@@ -140,14 +141,14 @@ const STYLES = `
   .eren-skeleton-closet { width: 100%; max-width: 270px; margin: 10px auto; }
   .eren-skeleton-machine { display: grid; grid-template-rows: 40px minmax(110px, 1fr) 90px; gap: 8px; flex: 1; min-height: 256px; padding: 0 20px; }
   .eren-loading-page { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; overflow: hidden; background: #f4f4f1; padding: max(56px, calc(var(--safe-top, 0px) + 12px)) 16px 90px; }
-  .eren-loading-page[data-layout="kiosk"] { background: #191f1c; --skeleton-ink: #3b4840; --skeleton-panel: #252e28; }
+  .eren-loading-page[data-layout="kiosk"] { background: #191f1c; --skeleton-ink: #3b4840; --skeleton-panel: #252e28; --skeleton-shine: rgba(255,255,255,.12); }
   .eren-loading-page[data-embedded="true"] { position: absolute; }
   .eren-loading-page > .eren-skeleton-content { flex: 1; min-height: 0; }
   .eren-skeleton-heading { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; height: 44px; margin-bottom: 18px; }
   .eren-skeleton-room { display: flex; flex-direction: column; min-height: 460px; height: 100%; }
   .eren-skeleton-needs { display: flex; justify-content: space-around; gap: 8px; margin: 24px 0 8px; }
   .eren-skeleton-room-stage { position: relative; flex: 1; min-height: 270px; border-bottom: 2px solid #e5e6e2; margin-bottom: 24px; }
-  @media (prefers-reduced-motion: reduce) { .eren-skeleton-block { animation: none; opacity: .8; } }
+  @media (prefers-reduced-motion: reduce) { .eren-skeleton-block::after { animation: none; display: none; } }
 `
 
 /** Use inside an already-rendered page; keep usable cached results visible. */
