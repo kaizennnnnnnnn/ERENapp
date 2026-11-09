@@ -62,6 +62,7 @@ function boot({ readyState = 'complete', pathname = '/home' } = {}) {
   const mocks = {
     react: { ...React, useState: () => [phase, value => { phase = value }], useRef: value => { const ref = { current: value }; refs.push(ref); return ref }, useEffect: fn => effects.push(fn) },
     'next/navigation': { usePathname: () => pathname },
+    '@/hooks/useReducedMotion': { useReducedMotion: () => false },
     './AnimatedEren': { default: () => React.createElement('canvas', { 'data-sprite': 'Eren' }) },
   }
   const component = require('./lib/load_ts.cjs')(mocks)('src/components/SplashScreen.tsx').default
@@ -99,7 +100,10 @@ b = boot()
 const bootMarkup = renderToStaticMarkup(b.element)
 assert.match(bootMarkup, /eren-boot-splash/)
 assert.match(bootMarkup, /<canvas/)
-assert.match(bootMarkup, />EREN<\/h1>/)
+assert.match(bootMarkup, />Eren<\/h1>/)
+assert.match(bootMarkup, /eren-boot-progress/)
+assert.match(bootMarkup, /erenBootSweep/)
+assert.doesNotMatch(bootMarkup, /font-pixel|eren-boot-dot|#A78BFA|drop-shadow|gradient/)
 assert.doesNotMatch(bootMarkup, /eren-loading-page|eren-skeleton-block/)
 b.cleanup()
 const splash = fs.readFileSync(path.join(root, 'src/components/SplashScreen.tsx'), 'utf8')
@@ -128,4 +132,4 @@ assert.match(read('src/components/Leaderboard.tsx'), /loading && loadFailed \?/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /!ready && !loadError &&/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /loadError &&/)
 // TypeScript also verifies every route import; these checks cover rendering and guards, not browser layout.
-console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 21 layouts, 4 game boards, branded startup restored, 10 boot lifecycle/render cases, cached-data/error guards.`)
+console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 21 layouts, 4 game boards, premium startup, 10 boot lifecycle/render cases, cached-data/error guards.`)

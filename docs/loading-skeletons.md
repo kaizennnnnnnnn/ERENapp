@@ -24,7 +24,11 @@ animated Eren, title and dots were restored at the owner's request after the
 skeleton rollout. It plays once per app boot, retains ready/busy claims and
 its eight-second safety exit, and has the original 1.2-second opening beat and
 400ms fade. Public legal documents still skip it, and navigating within the
-app does not replay it. All skeletons share a
+app does not replay it. The premium presentation update keeps that behavior:
+larger original sprite, rounded Meadow wordmark, charcoal ground, leaf-green
+indeterminate loading bar, and no purple glow. It shows no invented percentage
+or extra loading delay. Reduced motion keeps the sprite still and disables
+the entrance and loading-bar animations. All skeletons share a
 two-second left-to-right shimmer through the grey shapes (updated at the
 owner's request on 2026-11-09). A clipped, non-interactive pseudo-element moves
 without resizing the placeholders. The kiosk uses a softer highlight. Shimmer
@@ -39,6 +43,8 @@ Validation:
   and source checks for cached-data/error guards.
 - `node scripts/check_artwork_skeleton.cjs`: image load/error/cache/URL-change
   and unmount behavior against the actual component effects.
+- `node scripts/check_boot_sprite.cjs`: unchanged default animation for other
+  callers, larger glow-free startup, static reduced-motion pose and cleanup.
 - `npx tsc --noEmit` and production build (dummy public Supabase build settings;
   no local `.env.local` was present, and no live login was tested).
 

@@ -226,13 +226,16 @@ interface Props {
   /** The soft violet halo the dark loaders want. Off on light pages, which
    *  don't blur. */
   glow?: boolean
+  /** Keep the idle pose still for surfaces respecting reduced motion. */
+  animate?: boolean
 }
 
-export default function AnimatedEren({ px = 5, glow = true }: Props) {
+export default function AnimatedEren({ px = 5, glow = true, animate = true }: Props) {
   const [fi, setFi] = useState(0)
   const ref = useRef<ReturnType<typeof setTimeout>>()
 
   useEffect(() => {
+    if (!animate) return
     function tick() {
       setFi(i => {
         const next = (i + 1) % SEQUENCE.length
@@ -242,11 +245,11 @@ export default function AnimatedEren({ px = 5, glow = true }: Props) {
     }
     ref.current = setTimeout(tick, SEQUENCE[0].d)
     return () => clearTimeout(ref.current)
-  }, [])
+  }, [animate])
 
   return (
     <div style={glow ? { filter: 'drop-shadow(0 0 10px rgba(167,139,250,0.25))' } : undefined}>
-      <Sprite frame={SEQUENCE[fi].f} px={px} />
+      <Sprite frame={SEQUENCE[animate ? fi : 0].f} px={px} />
     </div>
   )
 }
