@@ -50,7 +50,7 @@ assert.equal(loadingLayoutForPath('/unknown-future-room'), 'room')
 
 // Exercise the actual boot component's effects with a deterministic clock.
 const NativeDate = Date
-function boot({ readyState = 'complete', pathname = '/home' } = {}) {
+function boot({ readyState = 'complete', pathname = '/home', reducedMotion = false } = {}) {
   let phase = 'playing', time = 0, next = 0
   const listeners = new Map(), timers = new Map(), effects = [], refs = []
   const window = {
@@ -62,8 +62,8 @@ function boot({ readyState = 'complete', pathname = '/home' } = {}) {
   const mocks = {
     react: { ...React, useState: () => [phase, value => { phase = value }], useRef: value => { const ref = { current: value }; refs.push(ref); return ref }, useEffect: fn => effects.push(fn) },
     'next/navigation': { usePathname: () => pathname },
-    '@/hooks/useReducedMotion': { useReducedMotion: () => false },
-    './AnimatedEren': { default: () => React.createElement('canvas', { 'data-sprite': 'Eren' }) },
+    '@/hooks/useReducedMotion': { useReducedMotion: () => reducedMotion },
+    './AnimatedEren': { default: props => React.createElement('canvas', { 'data-sprite': 'Eren', 'data-animated': String(props.animate), 'data-px': props.px, 'data-glow': String(props.glow) }) },
   }
   const component = require('./lib/load_ts.cjs')(mocks)('src/components/SplashScreen.tsx').default
   global.window = window
@@ -103,8 +103,13 @@ assert.match(bootMarkup, /<canvas/)
 assert.match(bootMarkup, />Eren<\/h1>/)
 assert.match(bootMarkup, /eren-boot-progress/)
 assert.match(bootMarkup, /erenBootSweep/)
+assert.match(bootMarkup, /data-animated="true" data-px="6" data-glow="false"/)
+assert.doesNotMatch(bootMarkup, /aria-valuenow/)
 assert.doesNotMatch(bootMarkup, /font-pixel|eren-boot-dot|#A78BFA|drop-shadow|gradient/)
 assert.doesNotMatch(bootMarkup, /eren-loading-page|eren-skeleton-block/)
+b.cleanup()
+b = boot({ reducedMotion: true })
+assert.match(renderToStaticMarkup(b.element), /data-animated="false"/)
 b.cleanup()
 const splash = fs.readFileSync(path.join(root, 'src/components/SplashScreen.tsx'), 'utf8')
 const ast = ts.createSourceFile('SplashScreen.tsx', splash, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
@@ -132,4 +137,4 @@ assert.match(read('src/components/Leaderboard.tsx'), /loading && loadFailed \?/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /!ready && !loadError &&/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /loadError &&/)
 // TypeScript also verifies every route import; these checks cover rendering and guards, not browser layout.
-console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 21 layouts, 4 game boards, premium startup, 10 boot lifecycle/render cases, cached-data/error guards.`)
+console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 21 layouts, 4 game boards, premium startup, 11 boot lifecycle/render cases, cached-data/error guards.`)

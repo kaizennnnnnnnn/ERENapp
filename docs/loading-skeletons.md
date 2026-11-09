@@ -38,7 +38,7 @@ interactive controls. Existing errors are not replaced by skeletons.
 
 Validation:
 - `node scripts/check_loading_skeletons.cjs`: all 42 destinations, 21 layouts,
-  exact board cell counts, ten branded-boot lifecycle/render cases including
+  exact board cell counts, eleven branded-boot lifecycle/render cases including
   minimum/late readiness, duplicate signals, StrictMode replay and timer cleanup,
   and source checks for cached-data/error guards.
 - `node scripts/check_artwork_skeleton.cjs`: image load/error/cache/URL-change
@@ -68,3 +68,11 @@ title and dots; after readiness the splash was removed and the page skeleton
 remained. Screenshots are `startup-restored-{390,360}.jpg` and
 `startup-handoff-{390,360}.jpg` in the same ignored review directory. The local
 replay is `/skin-lab/loading?boot=1`. No production debug route was added.
+
+Premium review: `startup-premium-390.jpg` and `startup-premium-360.jpg` show the
+larger original sprite, 34px rounded wordmark and green loading bar. Browser
+checks confirmed the 150x120 mascot stage, 120px progress track, Meadow font,
+and no horizontal overflow at 360px. A normal ready signal removed the splash
+and left page skeletons intact (`startup-premium-handoff-360.jpg`). The old
+startup restoration is published; this presentation update remains local for
+owner review.
