@@ -23,9 +23,9 @@ export function validKioskNight(value: KioskNight, actor: string, home: string) 
     && typeof value.worked === 'boolean' && Number.isSafeInteger(value.night_total) && value.night_total >= 0
     && Number.isSafeInteger(value.bonus_due) && value.bonus_due >= 0 && value.bonus_due % 40 === 0 && Array.isArray(value.rows)
 }
-export function readKioskNight(client: ReturnType<typeof createClient>, actor: string, home: string) {
+export function readKioskNight(client: ReturnType<typeof createClient>, actor: string, home: string, options: { budgetMs?: number } = {}) {
   return writeWithRetry(signal => client.rpc('get_kiosk_night_status', { p_expected_user: actor, p_household_id: home }).abortSignal(signal),
-    1, error => !['PGRST202', '42883', '42501'].includes(error.code ?? ''))
+    1, error => !['PGRST202', '42883', '42501'].includes(error.code ?? ''), options)
 }
 export function nightRemaining(night: KioskNight, monotonic = performance.now()) {
   return Math.max(0, Date.parse(night.resets_at) - Date.parse(night.server_time) - Math.max(0, monotonic - night.receivedAt))

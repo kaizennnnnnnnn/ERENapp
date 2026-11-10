@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),createLoader=re
 const base=createLoader(),{PLAYABLE_MINIGAME_IDS}=base('src/lib/minigames.ts'),{GACHA_ITEMS}=base('src/lib/gacha.ts')
 const {writeWithRetry,withRetry}=base('src/lib/supabaseRetry.ts')
 const USER='indicator-user',HOME='indicator-home',NOW=Date.parse('2026-11-06T12:00:00Z')
-const clone=v=>JSON.parse(JSON.stringify(v)),defer=()=>{let resolve;const promise=new Promise(done=>{resolve=done});return{promise,resolve}}
+const realNow=Date.now,clone=v=>JSON.parse(JSON.stringify(v)),defer=()=>{let resolve;const promise=new Promise(done=>{resolve=done});return{promise,resolve}}
 const fixtures=[]
 function hooks(){
   const states=[],refs=[],callbacks=[],effects=[];let si,ri,ci,ei,scheduled,dirty=false,live=true,late=0
@@ -12,8 +12,9 @@ function hooks(){
     useState(initial){const i=si++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>{if(!live)late++;const n=typeof v==='function'?v(states[i]):v;if(!Object.is(states[i],n)){states[i]=n;dirty=true}}]},
     useRef:initial=>{const i=ri++;return refs[i]??(refs[i]={current:initial})},
     useCallback(fn,deps){const i=ci++;if(changed(callbacks[i],deps))callbacks[i]={fn,deps};return callbacks[i].fn},
-    useEffect(setup,deps){const i=ei++,old=effects[i];if(changed(old,deps))scheduled.push(()=>{old?.cleanup?.();effects[i]={deps,cleanup:setup()}})},
+    useEffect(setup,deps){const i=ei++,old=effects[i];if(changed(old,deps))scheduled.push(()=>{old?.cleanup?.();effects[i]={deps,setup,cleanup:setup()}})},
     render(run){si=ri=ci=ei=0;scheduled=[];dirty=false;const v=run();scheduled.forEach(fn=>fn());return v},
+    strict(){effects.forEach(e=>{e?.cleanup?.();e.cleanup=e.setup()})},
     unmount(){effects.forEach(e=>e?.cleanup?.());live=false},get dirty(){return dirty},get late(){return late},
   }
 }
@@ -40,7 +41,7 @@ function fixture(kind='provider',options={}){
       insert:value=>{insert=value;return q},
       then:(yes,no)=>{calls.push({table,actor,insert});const data=table==='user_gacha_state'?getGacha(actor):table==='jelly_progress'?{supers:state.supers}:Array.from({length:state.weekly},()=>({payout_coins:100}))
         return Promise.resolve({data,error:null}).then(yes,no)},
-      maybeSingle:()=>q,
+      maybeSingle:()=>q,abortSignal:()=>q,
       single:async()=>{if(insert)state.gacha={...clone(insert),gacha_tickets:0,last_free_food_gacha:null,last_free_donut:null};return{data:getGacha(actor),error:null}}}
     return q
   },rpc(name,args){return{abortSignal:async signal=>{
@@ -96,7 +97,7 @@ function fixture(kind='provider',options={}){
   const run=kind==='provider'?()=>load('src/contexts/RewardIndicators.tsx').RewardIndicatorsProvider({children:null}).props.value:()=>load('src/hooks/useGacha.ts').useGacha()
   const h={state,calls,events,storage,session,receipts,react,foreground,intervals,client,
     helpers:load('src/lib/rewardIndicators.ts'),news:load('src/lib/rewardNews.ts'),journal:load('src/lib/savedRpc.ts'),
-    render:()=>react.render(run),
+    render:()=>react.render(run),waitReads:()=>Promise.all(Array.from(jobs)),
     async settle(){let value;for(let i=0;i<80;i++){value=h.render();await new Promise(r=>setImmediate(r));if(jobs.size&&!state.hold)await Promise.all(Array.from(jobs));if(!react.dirty&&!jobs.size)return h.render()}throw Error('Indicator effects did not settle')},
     unmount(){react.unmount();global.setInterval=realSetInterval;global.clearInterval=realClearInterval}}
   fixtures.push(h);h.render();return h
@@ -220,5 +221,68 @@ test('an unconfirmed Jelly round keeps the Parlour marked, independently of stoc
   for(const fn of h.foreground)fn();let v=await h.settle();assert.match(v.places['/jelly'],/round needs confirmation/)
   h.state.home='another-home';v=await h.settle();assert.equal(v.places['/jelly'],undefined);h.unmount()
 })
+
+const readCalls=(h,name='read_reward_indicators')=>h.calls.filter(c=>c.name===name).length
+const tick=()=>new Promise(done=>setImmediate(done))
+test('room/page navigation and wallet updates cause zero extra badge reads, without losing local dots',async()=>{
+  const h=fixture();await h.settle();const initial=h.calls.length
+  for(const [path,scene]of [['/games',null],['/profile',null],['/home','feed'],['/home','sleep'],['/home','play'],['/home',null]]){h.state.path=path;h.state.scene=scene;await h.settle()}
+  for(let i=0;i<20;i++)window.dispatchEvent(new CustomEvent('eren:profile-updated',{detail:{id:USER,patch:{coins:500-i}}}))
+  h.state.loading=true;await h.settle();h.state.loading=false;h.state.level=5;let v=await h.settle();assert.ok(v.tabs.me)
+  h.state.claimed=5;v=await h.settle();assert.equal(v.tabs.me,undefined);h.news.receiveRewardNews(USER,'profile','fresh-achievement');v=await h.settle();assert.equal(v.news.profile,true)
+  assert.equal(h.calls.length,initial);assert.equal(readCalls(h),1);assert.equal(readCalls(h,'get_kiosk_night_status'),1)
+  console.log('  Traffic check: 6 navigation changes + 20 balance events + quest-loading/level/news changes = 0 extra status requests.');h.unmount()
+})
+test('foreground and polling overlap share one read, even while rooms keep changing',async()=>{
+  const hold=defer(),h=fixture('provider',{state:{hold}});await tick()
+  for(let i=0;i<5;i++){for(const fn of h.foreground)fn();for(const timer of h.intervals.values())if(timer.ms===60000)timer.fn();h.state.scene=i%2?'feed':'sleep';h.render()}
+  assert.equal(readCalls(h),1);assert.equal(readCalls(h,'get_kiosk_night_status'),1)
+  hold.resolve();h.state.hold=null;await h.settle();assert.equal(readCalls(h),1);h.unmount()
+})
+test('fortune ticket gifts still refresh their badge immediately, scoped to the signed-in player',async()=>{
+  const h=fixture('provider',{state:{gacha:{user_id:USER,gacha_tickets:0,last_free_food_gacha:new Date(NOW).toISOString(),last_free_donut:new Date(NOW).toISOString()}}});let v=await h.settle();assert.equal(v.places['/gacha'],undefined)
+  h.state.gacha.gacha_tickets=2;window.dispatchEvent(new CustomEvent('eren:fortune-saved',{detail:{userId:'someone-else'}}));await new Promise(done=>setTimeout(done,180));await h.settle();assert.equal(readCalls(h),1)
+  window.dispatchEvent(new CustomEvent('eren:fortune-saved',{detail:{userId:USER}}));await new Promise(done=>setTimeout(done,180));v=await h.settle();assert.equal(readCalls(h),2);assert.match(v.places['/gacha'],/tickets are ready/);h.unmount()
+})
+test('explicit reward bursts still refresh once, and timers remain independent of navigation',async()=>{
+  const h=fixture();await h.settle();const timers=[...h.intervals.keys()]
+  h.state.gacha.last_free_food_gacha=new Date(NOW).toISOString();h.state.gacha.last_free_donut=new Date(NOW).toISOString()
+  for(const event of ['eren:reward-indicators-changed','eren:game-saved','eren:rewards-claimed'])for(let i=0;i<4;i++)window.dispatchEvent(new Event(event))
+  h.state.scene='wash';h.state.path='/games';await h.settle();assert.deepEqual([...h.intervals.keys()],timers)
+  await new Promise(done=>setTimeout(done,180));let v=await h.settle();assert.equal(readCalls(h),2);assert.equal(v.places['/gacha'],undefined);assert.equal(v.places['/bakery'],undefined)
+  h.state.now+=86400000;for(const timer of h.intervals.values())if(timer.ms===15000)timer.fn();v=await h.settle();assert.ok(v.places['/gacha']);assert.equal(readCalls(h),2)
+  for(const timer of h.intervals.values())if(timer.ms===60000)timer.fn();await h.settle();assert.equal(readCalls(h),3);h.unmount()
+})
+test('a mutation during a read invalidates its snapshot and gets exactly one fresh follow-up',async()=>{
+  const h=fixture('provider',{state:{supers:1,nightMode:'ok'}});await h.settle()
+  const old=defer(),fresh=defer();h.state.supers=4;h.state.hold=old;for(const fn of h.foreground)fn();await tick()
+  h.state.supers=2;h.state.hold=fresh;for(let i=0;i<10;i++)h.helpers.notifyRewardIndicators()
+  assert.equal(readCalls(h),2);old.resolve();await tick();assert.equal(readCalls(h),3)
+  assert.match(h.render().places['/jelly'],/^1 Super/,'The invalidated snapshot must not paint four Jellies')
+  fresh.resolve();h.state.hold=null;const v=await h.settle();assert.match(v.places['/jelly'],/^2 Super/);assert.equal(readCalls(h),3);h.unmount()
+})
+test('queued change timers are cancelled when a read begins and changes again',async()=>{
+  const h=fixture();await h.settle();h.helpers.notifyRewardIndicators()
+  const hold=defer();h.state.hold=hold;for(const fn of h.foreground)fn();h.helpers.notifyRewardIndicators();assert.equal(readCalls(h),2)
+  hold.resolve();h.state.hold=null;await h.settle();await new Promise(done=>setTimeout(done,180));await h.settle();assert.equal(readCalls(h),3,'One active read + one follow-up, no leftover debounce read');h.unmount()
+})
+test('read generations survive account/household ABA and StrictMode without late patches',async()=>{
+  for(const change of ['user','home','strict']){
+    const hold=defer(),h=fixture('provider',{state:{hold,supers:4,nightMode:'ok'}});await tick();h.state.supers=2
+    if(change==='strict')h.react.strict()
+    else{const original=h.state[change];h.state[change]='away';h.render();h.state[change]=original;h.render()}
+    hold.resolve();h.state.hold=null;const v=await h.settle();assert.match(v.places['/jelly'],/^2 Super/);assert.equal(h.react.late,0);h.unmount()
+  }
+})
+test('hidden polling stays quiet and unmount cancels pending change timers',async()=>{
+  const h=fixture();await h.settle();document.visibilityState='hidden'
+  for(const timer of h.intervals.values())timer.fn();await h.settle();assert.equal(readCalls(h),1)
+  document.visibilityState='visible';h.helpers.notifyRewardIndicators();h.unmount();await new Promise(done=>setTimeout(done,180));assert.equal(readCalls(h),1);assert.equal(h.foreground.size,0);assert.equal(h.intervals.size,0);assert.equal(h.react.late,0)
+})
+test('stalled status RPCs ignoring abort settle within six seconds and can recover on foreground',async()=>{
+  const hold=defer(),h=fixture('provider',{state:{hold,nightMode:'ok'}});Date.now=realNow;const start=Date.now()
+  await h.waitReads();await tick();assert.ok(Date.now()-start>=5900&&Date.now()-start<8000);assert.equal(readCalls(h),1);assert.equal(readCalls(h,'get_kiosk_night_status'),1);assert.deepEqual(h.render().places,{})
+  hold.resolve();h.state.hold=null;for(const fn of h.foreground)fn();const v=await h.settle();assert.ok(v.places['/gacha']);assert.ok(v.places['/shawarma']);assert.equal(readCalls(h),2);assert.equal(h.react.late,0);h.unmount()
+})
 ;(async()=>{for(const{name,run}of tests){await run();console.log('PASS '+name)}console.log('Reward indicators: '+tests.length+'/'+tests.length+' client scenarios passed')})()
-  .catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{for(const f of fixtures)f.unmount()})
+  .catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{for(const f of fixtures)f.unmount();Date.now=realNow})

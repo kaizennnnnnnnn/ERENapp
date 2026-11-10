@@ -2,11 +2,11 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { useAuth, PROFILE_UPDATED_EVENT } from '@/hooks/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from './TaskContext'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
+import { writeWithRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { freeFoodWait, untilFree, readSeenGames, unseenGames, seenGamesKey, REWARD_INDICATORS_CHANGED } from '@/lib/rewardIndicators'
 import { pendingGameSaves, GAME_SAVED_EVENT } from '@/lib/gameSaves'
@@ -18,6 +18,7 @@ import { readKioskNight, validKioskNight, nightRemaining, kioskNotice, pendingKi
 import { pendingKioskSaves } from '@/lib/kioskSaves'
 import { pendingSuperJellyFeeds } from '@/lib/superJellySaves'
 import { pendingJellyRounds } from '@/lib/jellyRoundSaves'
+import { FORTUNE_SAVED_EVENT } from '@/lib/fortuneSaves'
 
 export interface RewardAlerts {
   places: Partial<Record<'/gacha' | '/bakery' | '/jelly' | '/shawarma', string>>
@@ -42,44 +43,62 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
   const [local, setLocal] = useState<{ owner: string; home: string | null; newGames: GameType[]; pending: number; kioskSaves: number; kioskBonuses: number; jellyFeeds: number; jellyRounds: number; news: RewardAlerts['news'] } | null>(null)
   const seen = useRef<{ owner: string; ids: Set<string> } | null>(null)
   const current = useRef(user?.id); current.current = user?.id
-  const currentHome = useRef(home); currentHome.current = home
-  const version = useRef(0)
+  const readScope = useRef({ actor: user?.id, home })
+  if (readScope.current.actor !== user?.id || readScope.current.home !== home) readScope.current = { actor: user?.id, home }
+  const currentReadScope = readScope.current
+  const readLive = useRef(true)
+  const flight = useRef<{ scope: typeof currentReadScope; again: boolean; promise: Promise<void> } | null>(null)
+  const syncLocalRef = useRef<(() => void) | null>(null)
   const markNewsSeen = useCallback((target: RewardNewsTarget) => {
     if (user?.id && current.current === user.id) markRewardNewsSeen(user.id, target)
   }, [user?.id])
-  const refresh = useCallback(async () => {
+  const refresh = useCallback((changed = false): Promise<void> => {
     const actor = user?.id
-    if (!actor || current.current !== actor) return
-    const read = ++version.current, db = createClient()
-    const [response, nightStatus] = await Promise.all([
-      writeWithRetry(signal => db.rpc('read_reward_indicators', { p_expected_user: actor }).abortSignal(signal),
-        2, error => !['PGRST202', '42883'].includes(error.code ?? '')),
-      home ? readKioskNight(db, actor, home) : Promise.resolve(null),
-    ])
-    if (current.current !== actor || currentHome.current !== home || read !== version.current) return
-    setKiosk(home && nightStatus && !nightStatus.error && validKioskNight(nightStatus.data as KioskNight, actor, home)
-      ? { ...(nightStatus.data as KioskNight), receivedAt: performance.now() } : null)
-    if (!response.error) {
-      const data = response.data
-      const valid = data?.ok && data.user_id === actor && data.gacha && typeof data.gacha === 'object'
-        && Number.isSafeInteger(data.supers) && data.supers >= 0 && Number.isSafeInteger(data.weekly) && data.weekly >= 0
-      setRows(valid ? { owner: actor, gacha: data.gacha, supers: data.supers, weekly: data.weekly } : null)
-      setNow(Date.now())
-      return
+    if (!actor || !readLive.current || readScope.current !== currentReadScope) return Promise.resolve()
+    const previous = flight.current
+    if (previous?.scope === currentReadScope) {
+      if (changed) previous.again = true
+      return previous.promise
     }
-    if (!['PGRST202', '42883'].includes(response.error.code ?? '')) { setRows(null); return }
-    // Old SQL still supports donut/Jelly badges; the new food offer stays off.
-    const [gacha, jelly, weekly] = await Promise.all([
-      withRetry(() => db.from('user_gacha_state').select('*').eq('user_id', actor).maybeSingle()),
-      withRetry(() => db.from('jelly_progress').select('supers').eq('user_id', actor).maybeSingle()),
-      withRetry(() => db.from('weekly_game_results').select('payout_coins').eq('user_id', actor).eq('payout_paid', false).gt('payout_coins', 0).limit(20)),
-    ])
-    if (current.current !== actor || read !== version.current) return
-    setRows({ owner: actor, gacha: gacha.error ? null : gacha.data ?? { last_free_donut: null, gacha_tickets: 0 },
-      supers: !jelly.error && Number.isSafeInteger(jelly.data?.supers) ? Math.max(0, jelly.data!.supers) : 0,
-      weekly: weekly.error ? 0 : weekly.data?.length ?? 0 })
-    setNow(Date.now())
-  }, [user?.id, home])
+    const job = { scope: currentReadScope, again: false, promise: Promise.resolve() }, db = createClient()
+    flight.current = job
+    const active = () => readLive.current && readScope.current === currentReadScope && flight.current === job
+    const read = async () => {
+      const [response, nightStatus] = await Promise.all([
+        writeWithRetry(signal => db.rpc('read_reward_indicators', { p_expected_user: actor }).abortSignal(signal),
+          2, error => !['PGRST202', '42883'].includes(error.code ?? ''), { budgetMs: 6000 }),
+        home ? readKioskNight(db, actor, home, { budgetMs: 6000 }) : Promise.resolve(null),
+      ])
+      if (!active() || job.again) return
+      setKiosk(home && nightStatus && !nightStatus.error && validKioskNight(nightStatus.data as KioskNight, actor, home)
+        ? { ...(nightStatus.data as KioskNight), receivedAt: performance.now() } : null)
+      if (!response.error) {
+        const data = response.data
+        const valid = data?.ok && data.user_id === actor && data.gacha && typeof data.gacha === 'object'
+          && Number.isSafeInteger(data.supers) && data.supers >= 0 && Number.isSafeInteger(data.weekly) && data.weekly >= 0
+        setRows(valid ? { owner: actor, gacha: data.gacha, supers: data.supers, weekly: data.weekly } : null)
+        setNow(Date.now())
+        return
+      }
+      if (!['PGRST202', '42883'].includes(response.error.code ?? '')) { setRows(null); return }
+      // Old SQL still supports donut/Jelly badges; the new food offer stays off.
+      const [gacha, jelly, weekly] = await Promise.all([
+        writeWithRetry(signal => db.from('user_gacha_state').select('*').eq('user_id', actor).abortSignal(signal).maybeSingle(), 2, undefined, { budgetMs: 6000 }),
+        writeWithRetry(signal => db.from('jelly_progress').select('supers').eq('user_id', actor).abortSignal(signal).maybeSingle(), 2, undefined, { budgetMs: 6000 }),
+        writeWithRetry(signal => db.from('weekly_game_results').select('payout_coins').eq('user_id', actor).eq('payout_paid', false).gt('payout_coins', 0).limit(20).abortSignal(signal), 2, undefined, { budgetMs: 6000 }),
+      ])
+      if (!active() || job.again) return
+      setRows({ owner: actor, gacha: gacha.error ? null : gacha.data ?? { last_free_donut: null, gacha_tickets: 0 },
+        supers: !jelly.error && Number.isSafeInteger(jelly.data?.supers) ? Math.max(0, jelly.data!.supers) : 0,
+        weekly: weekly.error ? 0 : weekly.data?.length ?? 0 })
+      setNow(Date.now())
+    }
+    job.promise = (async () => {
+      // Focus/poll callers share a read. A real reward change gets one fresh follow-up.
+      do { job.again = false; await read() } while (active() && job.again)
+    })().finally(() => { if (flight.current === job) flight.current = null })
+    return job.promise
+  }, [user?.id, home, currentReadScope])
 
   useEffect(() => {
     if (!kiosk || kiosk.user_id !== user?.id || kiosk.household_id !== home) return
@@ -90,7 +109,7 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
   useEffect(() => {
     const actor = user?.id
     if (!actor) { setRows(null); setLocal(null); setKiosk(null); return }
-    let dead = false, timer: ReturnType<typeof setTimeout> | undefined
+    let dead = false
     const syncLocal = () => {
       if (dead || current.current !== actor) return
       let storage: Storage | null = null
@@ -110,24 +129,42 @@ export function RewardIndicatorsProvider({ children }: { children: React.ReactNo
         jellyRounds: home ? pendingJellyRounds(actor, home).length : 0,
         news: Object.fromEntries(Object.entries(news).map(([target, group]) => [target, group.unread.length > 0])) })
     }
-    const sync = () => { if (!dead) { syncLocal(); void refresh() } }
-    const changed = () => { clearTimeout(timer); timer = setTimeout(sync, 150) }
     const storageChanged = (event: StorageEvent) => {
       if (event.key === seenGamesKey(actor)) { seen.current = null; syncLocal() }
       if (event.key === rewardNewsKey(actor)) syncLocal()
     }
     const newsChanged = (event: Event) => { if ((event as CustomEvent<{ actor: string }>).detail?.actor === actor) syncLocal() }
-    sync()
+    syncLocalRef.current = syncLocal
+    syncLocal()
+    window.addEventListener('storage', storageChanged)
+    window.addEventListener(REWARD_NEWS_CHANGED, newsChanged)
+    return () => { dead = true; if (syncLocalRef.current === syncLocal) syncLocalRef.current = null
+      window.removeEventListener('storage', storageChanged); window.removeEventListener(REWARD_NEWS_CHANGED, newsChanged) }
+  }, [user?.id, home, path, activeScene, loading])
+
+  useEffect(() => {
+    if (!user?.id) { readLive.current = false; return }
+    readLive.current = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const sync = () => { syncLocalRef.current?.(); void refresh() }
+    const changed = () => {
+      clearTimeout(timer); timer = undefined
+      syncLocalRef.current?.()
+      // Invalidate an in-flight snapshot immediately, before the debounce elapses.
+      if (flight.current?.scope === currentReadScope) { void refresh(true); return }
+      timer = setTimeout(() => { timer = undefined; void refresh(true) }, 150)
+    }
+    void refresh()
     const off = onForeground(sync)
     const poll = setInterval(() => { if (document.visibilityState === 'visible') sync() }, 60_000)
     const clock = setInterval(() => { if (document.visibilityState === 'visible') setNow(Date.now()) }, 15_000)
-    const events = [REWARD_INDICATORS_CHANGED, PROFILE_UPDATED_EVENT, GAME_SAVED_EVENT, 'eren:rewards-claimed']
+    const events = [REWARD_INDICATORS_CHANGED, GAME_SAVED_EVENT, 'eren:rewards-claimed']
+    const fortuneSaved = (event: Event) => { if ((event as CustomEvent<{ userId: string }>).detail?.userId === user.id) changed() }
     events.forEach(name => window.addEventListener(name, changed))
-    window.addEventListener('storage', storageChanged)
-    window.addEventListener(REWARD_NEWS_CHANGED, newsChanged)
-    return () => { dead = true; version.current++; clearTimeout(timer); clearInterval(poll); clearInterval(clock); off()
-      events.forEach(name => window.removeEventListener(name, changed)); window.removeEventListener('storage', storageChanged); window.removeEventListener(REWARD_NEWS_CHANGED, newsChanged) }
-  }, [user?.id, profile?.household_id, path, activeScene, loading, refresh])
+    window.addEventListener(FORTUNE_SAVED_EVENT, fortuneSaved)
+    return () => { readLive.current = false; flight.current = null; clearTimeout(timer); clearInterval(poll); clearInterval(clock); off()
+      events.forEach(name => window.removeEventListener(name, changed)); window.removeEventListener(FORTUNE_SAVED_EVENT, fortuneSaved) }
+  }, [user?.id, currentReadScope, refresh])
 
   const known = rows?.owner === user?.id ? rows : null
   const localKnown = local && local.owner === user?.id && local.home === home ? local : null
