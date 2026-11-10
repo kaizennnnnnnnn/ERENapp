@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry } from '@/lib/supabaseRetry'
+import { writeWithRetry } from '@/lib/supabaseRetry'
+import { boundedRequest } from '@/lib/boundedRequest'
+import { createCoupleReadQueue } from '@/lib/coupleReads'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import { useCat } from './useCat'
@@ -15,7 +17,7 @@ import { FOOD_META } from '@/lib/foodMeta'
 import {
   backfillDailyResults, fetchLifetimeRows, computeLifetimeWLT,
   ensureLastWeekResult, claimWeeklyPayout, acknowledgeWeeklyResult,
-  WEEKLY_PAYOUT_COINS,
+  WEEKLY_PAYOUT_COINS, lastIsoWeek,
   type LifetimeWLT, type WeeklyBattleRow,
 } from '@/lib/battleResults'
 import {
@@ -44,6 +46,7 @@ function useCoupleImpl() {
   const [partnerStreak, setPartnerStreak] = useState<StreakData | null>(null)
   const [loveMeter, setLoveMeter] = useState<LoveMeterResult | null>(null)
   const [anniversary, setAnniversary] = useState<AnniversaryInfo | null>(null)
+  const [householdSince, setHouseholdSince] = useState<string | null>(null)
   const [journal, setJournal] = useState<JournalMessage[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [newMessage, setNewMessage] = useState<JournalMessage | null>(null) // for popup
@@ -85,260 +88,177 @@ function useCoupleImpl() {
   // already-subscribed channel back. The counter + random suffix
   // guarantees uniqueness.
   const channelRef = useRef<string>(`couple_${++_coupleChannelCounter}_${Math.random().toString(36).slice(2, 8)}`)
-  // True when the last fetchAll hit a Supabase outage that outlasted
-  // withRetry's backoff — the focus listener uses it to refetch.
-  const loadFailedRef = useRef(false)
   // The partner read specifically failed, as opposed to returning no rows.
   // A ref cannot carry this: `isSolo` is computed during render and has to
   // re-evaluate when the answer changes, so it needs state.
   const [partnerUnknown, setPartnerUnknown] = useState(false)
+  const readScope = useRef({ actor: user?.id, home: profile?.household_id })
+  if (readScope.current.actor !== user?.id || readScope.current.home !== profile?.household_id) readScope.current = { actor: user?.id, home: profile?.household_id }
+  const currentReadScope = readScope.current
+  const [dataScope, setDataScope] = useState(currentReadScope)
+  const mounted = useRef(true)
+  const isCurrent = useCallback(() => mounted.current && readScope.current === currentReadScope, [currentReadScope])
+  const reads = useMemo(() => createCoupleReadQueue(isCurrent), [isCurrent])
+  const partnerRead = useRef<{ ready: boolean; value: Profile | null }>({ ready: false, value: null })
+  const householdDate = useRef<string | null>(null)
+  const historyStamp = useRef<string | null>(null)
+  const myName = useRef(profile?.name ?? ''); myName.current = profile?.name ?? ''
+  const seenMessages = useRef(new Set<string>())
 
-  // ── Load partner, love meter, anniversary, journal ──
-  const fetchAll = useCallback(async () => {
-    if (!profile?.household_id || !user?.id) return
+  useEffect(() => {
+    mounted.current = true
+    setDataScope(currentReadScope)
+    partnerRead.current = { ready: false, value: null }; householdDate.current = null; historyStamp.current = null; seenMessages.current.clear()
+    setPartner(null); setPartnerStreak(null); setPartnerUnknown(false); setLoading(true)
+    setAnniversary(null); setHouseholdSince(null); setLoveMeter(null); setJournal([]); setNotes([]); setUnreadCount(0); setNewMessage(null)
+    setPartnerMood(null); setPartnerMoodWeek([]); setLifetimeWLT(null); setWeeklyChampion(null)
+    setCoopCombined(0); setCoopMine(0); setCoopPartner(0); setCoopRow(null); setCoopRowLoaded(false)
+    setNotesReadAt(0); setGiftsSeenAt(null)
+    return () => { mounted.current = false; reads.dispose() }
+  }, [reads, currentReadScope])
 
-    // Start every independent read at once — serially these were ~8
-    // back-to-back round trips on each app open. The awaits below keep
-    // the original order, so setter sequence and error handling are
-    // unchanged; withRetry never rejects, so a bail simply discards the
-    // in-flight reads without applying their setters.
-    const weekStart = startOfWeek().toISOString()
-    const householdP = withRetry(() => supabase
-      .from('households')
-      .select('created_at')
-      .eq('id', profile.household_id)
-      .maybeSingle())
-    const interactionsP = withRetry(() => supabase
-      .from('interactions')
-      .select('*')
-      .eq('household_id', profile.household_id)
-      .gte('created_at', weekStart))
-    const journalP = withRetry(() => supabase
-      .from('couple_journal')
-      .select('*, profile:profiles!sender_id(*)')
-      .eq('household_id', profile.household_id)
-      .or('via_eren.is.null,via_eren.eq.false')
-      .order('created_at', { ascending: false })
-      .limit(50))
-    // The note board — same table, opposite filter to journalP, so a row is
-    // either chat or a note and never both. One-tap nudges are excluded on
-    // top of that (`eren_state` is the nudge's pose): the board keeps what we
-    // actually wrote or gave, not the canned gestures.
-    const notesP = withRetry(() => supabase
-      .from('couple_journal')
-      .select('*, profile:profiles!sender_id(*)')
-      .eq('household_id', profile.household_id)
-      .eq('via_eren', true)
-      .is('eren_state', null)
-      .order('created_at', { ascending: false })
-      .limit(200))
+  const refreshHousehold = useCallback(() => reads.run('household', async accept => {
+    if (!currentReadScope.home) return
+    if (!householdDate.current) {
+      const { data, error } = await writeWithRetry(signal => supabase.from('households').select('created_at').eq('id', currentReadScope.home!).abortSignal(signal).maybeSingle(), 2, undefined, { budgetMs: 6000 })
+      if (!accept() || error) return
+      if (data?.created_at) { householdDate.current = data.created_at; setHouseholdSince(data.created_at) }
+    }
+    if (accept() && householdDate.current) setAnniversary(getAnniversaryInfo(householdDate.current))
+  }), [reads, currentReadScope]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Partner. Reads go through withRetry because Supabase
-    // intermittently 503s while the hosted project restarts — and this
-    // fetch runs once per mount, so a blip used to blank the couple UI
-    // until a manual reload. If the first read still fails after the
-    // retries, the backend is down: bail without clobbering whatever
-    // state we already have, and let the focus listener refetch.
-    const { data: members, error: membersError } = await withRetry(() => supabase
-      .from('profiles')
-      .select('*')
-      .eq('household_id', profile.household_id)
-      .neq('id', user.id))
-    if (membersError) {
-      // Read FAILED — which is not the same answer as "no partner". Marking
-      // it keeps `isSolo` false until we actually know, because `loading`
-      // flips false here and `partner` is still null, and that combination is
-      // exactly what every solo branch in the app tests for. Before this, one
-      // 503 on this read showed a real couple the whole solo build of the app
-      // until they refocused the tab. `loading` still clears, so pages render
-      // rather than hanging behind a loader for the length of an outage.
-      loadFailedRef.current = true
-      setPartnerUnknown(true)
-      setLoading(false)
+  const refreshMessages = useCallback(() => reads.run('messages', async accept => {
+    const { actor, home } = currentReadScope
+    if (!actor || !home) return
+    const [chat, board] = await Promise.all([
+      writeWithRetry(signal => supabase.from('couple_journal').select('*, profile:profiles!sender_id(*)').eq('household_id', home)
+        .or('via_eren.is.null,via_eren.eq.false').order('created_at', { ascending: false }).limit(50).abortSignal(signal), 2, undefined, { budgetMs: 6000 }),
+      writeWithRetry(signal => supabase.from('couple_journal').select('*, profile:profiles!sender_id(*)').eq('household_id', home)
+        .eq('via_eren', true).is('eren_state', null).order('created_at', { ascending: false }).limit(200).abortSignal(signal), 2, undefined, { budgetMs: 6000 }),
+    ])
+    if (!accept()) return
+    // Successful empty lists reconcile deletions; failures retain the previous lists.
+    if (!chat.error) {
+      const rows = (chat.data ?? []) as JournalMessage[]
+      rows.forEach(row => seenMessages.current.add(row.id))
+      setJournal(rows)
+      let lastRead = 0
+      try { lastRead = Date.parse(localStorage.getItem(`eren_journal_read_${actor}`) ?? '') || 0 } catch { /* Optional storage. */ }
+      setUnreadCount(rows.filter(row => row.sender_id !== actor && Date.parse(row.created_at) > lastRead).length)
+      setNewMessage(previous => previous && !previous.via_eren && !rows.some(row => row.id === previous.id) ? null : previous)
+    }
+    if (!board.error) {
+      const rows = (board.data ?? []) as JournalMessage[]
+      rows.forEach(row => seenMessages.current.add(row.id))
+      setNotes(rows)
+      setNewMessage(previous => previous?.via_eren && !isNudgeRow(previous) && !rows.some(row => row.id === previous.id) ? null : previous)
+    }
+  }), [reads, currentReadScope]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refreshPartner = useCallback(() => reads.run('partner', async accept => {
+    const { actor, home } = currentReadScope
+    if (!actor || !home) return
+    const { data, error } = await writeWithRetry(signal => supabase.from('profiles').select('*').eq('household_id', home).neq('id', actor).abortSignal(signal), 2, undefined, { budgetMs: 6000 })
+    if (!accept()) return
+    if (error) {
+      partnerRead.current.ready = false
+      setPartnerUnknown(true); setLoading(false)
       return
     }
-    loadFailedRef.current = false
-    setPartnerUnknown(false)
-    const p = members?.[0] ?? null
-    setPartner(p)
-    setPartnerStreak((p?.streak as StreakData | undefined) ?? null)
+    const value = (data?.[0] ?? null) as Profile | null
+    partnerRead.current = { ready: true, value }
+    setPartner(value); setPartnerStreak((value?.streak as StreakData | undefined) ?? null)
+    setPartnerUnknown(false); setLoading(false)
+  }), [reads, currentReadScope]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Partner-dependent reads start now and run concurrently. Catches are
-    // attached at creation so a rejection while another await is pending
-    // can't fire unhandledrejection; the undefined sentinel reproduces the
-    // old catch-skips-setter behavior exactly.
-    const todayStr = moodDateKey()
-    const weekStartStr = moodDateKey(subDays(new Date(), 6))
-    const moodsP = p ? withRetry(() => supabase
-      .from('daily_moods')
-      .select('mood, date')
-      .eq('user_id', p.id)
-      .gte('date', weekStartStr)) : null
-    // Runs solo too, with an empty partnerId — scoreDaily then puts Eren in
-    // the empty seat. Gating this on `p` was the real reason a solo player
-    // never earned a trophy: no snapshot row was ever written, so there was
-    // nothing for the settlement sweep to find, so the entire Trophy Room was
-    // a wall of prices they could not pay. `p` here is the freshly-fetched
-    // partner, not the loading-state null, so this cannot misfire for a couple.
-    const lifetimeP = backfillDailyResults(
-      supabase, profile.household_id, user.id, p?.id ?? '',
-    )
-      .then(() => {
-        // Yesterday's snapshot only EXISTS after this runs — there is no
-        // cron. The trophy settlement waits on this signal rather than
-        // racing it, because at midnight the row is reliably absent and a
-        // hook that read once would cache "no result" for the whole day.
-        try { window.dispatchEvent(new Event('eren:battle-backfilled')) } catch { /* SSR */ }
-        return fetchLifetimeRows(supabase, user.id)
-      })
-      .catch(() => undefined)
-    // Ungated: solo, last week settles against Eren's weekly score, which is
-    // what pays the 100-coin champion prize a household of one was missing.
-    const weeklyP = ensureLastWeekResult(
-      supabase, profile.household_id, user.id, p?.id ?? '',
-    ).catch(() => undefined)
-    // My co-op claim row for THIS week (null until claimed). Read concurrently.
-    // Not gated on `p` — a solo household clears a single share and claims it
-    // the same way, so the row has to be readable to know whether they already
-    // have.
-    const coopRowP = withRetry(() => supabase
-      .from('weekly_coop_results')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('iso_week', thisIsoWeekKey())
-      .maybeSingle())
+  const refreshMoods = useCallback(() => {
+    const p = partnerRead.current.value
+    return reads.run(`moods:${p?.id ?? 'solo'}`, async accept => {
+      if (!partnerRead.current.ready) return
+      if (!p) { if (accept()) { setPartnerMoodWeek([]); setPartnerMood(null) }; return }
+      const day = moodDateKey()
+      const { data, error } = await writeWithRetry(signal => supabase.from('daily_moods').select('mood, date').eq('user_id', p.id)
+        .gte('date', moodDateKey(subDays(new Date(), 6))).abortSignal(signal), 2, undefined, { budgetMs: 6000 })
+      if (!accept() || error || partnerRead.current.value?.id !== p.id) return
+      if (day !== moodDateKey()) { reads.invalidate(`moods:${p.id}`); return }
+      const byDate = new Map<string, UserMood>((data ?? []).map(row => [row.date, row.mood as UserMood]))
+      setPartnerMoodWeek(Array.from({ length: 7 }, (_, i) => {
+        const date = moodDateKey(subDays(new Date(), 6 - i))
+        return { date, mood: byDate.get(date) ?? null }
+      }))
+      setPartnerMood(byDate.get(moodDateKey()) ?? null)
+    })
+  }, [reads]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Partner's recent moods — today's mood + a 7-day strip (gaps = null).
-    if (p) {
-      const { data: moodRows, error: moodsError } = await moodsP!
-      if (moodsError) {
-        // Keep the previous mood strip — an all-null week from a failed read
-        // would clobber a correct one. The foreground listener refetches.
-        loadFailedRef.current = true
-      } else {
-        const byDate = new Map<string, UserMood>((moodRows ?? []).map(m => [m.date, m.mood as UserMood]))
-        const week = Array.from({ length: 7 }, (_, i) => {
-          const d = moodDateKey(subDays(new Date(), 6 - i))
-          return { date: d, mood: byDate.get(d) ?? null }
-        })
-        setPartnerMoodWeek(week)
-        setPartnerMood(byDate.get(todayStr) ?? null)
-      }
-    } else {
-      setPartnerMoodWeek([])
-      setPartnerMood(null)
+  const refreshCare = useCallback((changed = false) => reads.run('care', async accept => {
+    const { actor, home } = currentReadScope
+    if (!actor || !home || !partnerRead.current.ready) return
+    const week = thisIsoWeekKey()
+    const [care, claim] = await Promise.all([
+      writeWithRetry(signal => supabase.from('interactions').select('*').eq('household_id', home).gte('created_at', startOfWeek().toISOString()).abortSignal(signal), 2, undefined, { budgetMs: 6000 }),
+      writeWithRetry(signal => supabase.from('weekly_coop_results').select('*').eq('user_id', actor).eq('iso_week', week).abortSignal(signal).maybeSingle(), 2, undefined, { budgetMs: 6000 }),
+    ])
+    if (!accept() || !partnerRead.current.ready) return
+    if (week !== thisIsoWeekKey()) { reads.invalidate('care'); return }
+    const p = partnerRead.current.value
+    if (!care.error) {
+      const rows = (care.data ?? []) as Interaction[]
+      setLoveMeter(p ? computeLoveMeter(rows, actor, myName.current, p.id, p.name)
+        : computeLoveMeter(rows, actor, myName.current, EREN_OPPONENT_ID, '',
+          erenWeeklyPace(week, (Date.now() - startOfWeek().getTime()) / (7 * 86400000))))
+      const coop = countCoopByUser(rows, actor, p?.id ?? '')
+      setCoopMine(coop.mine); setCoopPartner(coop.partner); setCoopCombined(coop.combined)
     }
+    if (!claim.error) { setCoopRow((claim.data as CoopGoalRow | null) ?? null); setCoopRowLoaded(true) }
+  }, changed), [reads, currentReadScope]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Anniversary
-    const { data: household, error: householdError } = await householdP
-    if (householdError) loadFailedRef.current = true
-    if (household) {
-      setAnniversary(getAnniversaryInfo(household.created_at))
+  const refreshResults = useCallback((force = false) => reads.run('results', async accept => {
+    const { actor, home } = currentReadScope
+    if (!actor || !home || !partnerRead.current.ready) return
+    const p = partnerRead.current.value, stamp = `${moodDateKey()}:${p?.id ?? 'solo'}`
+    if (!force && historyStamp.current === stamp) {
+      // Claims can change on another device, even though yesterday's history cannot.
+      const { data, error } = await writeWithRetry(signal => supabase.from('weekly_battle_results').select('*').eq('user_id', actor)
+        .eq('iso_week', lastIsoWeek().key).abortSignal(signal).maybeSingle(), 2, undefined, { budgetMs: 6000 })
+      if (!accept() || error || !partnerRead.current.ready) return
+      if (`${moodDateKey()}:${partnerRead.current.value?.id ?? 'solo'}` !== stamp) { reads.invalidate('results'); return }
+      setWeeklyChampion((data as WeeklyBattleRow | null) ?? null)
+      return
     }
+    const [lifetime, weekly] = await Promise.all([
+      boundedRequest(async () => {
+        await backfillDailyResults(supabase, home, actor, p?.id ?? '')
+        if (!accept()) return undefined
+        window.dispatchEvent(new Event('eren:battle-backfilled'))
+        return fetchLifetimeRows(supabase, actor)
+      }, { timeoutMs: 8000 }).catch(() => undefined),
+      boundedRequest(() => ensureLastWeekResult(supabase, home, actor, p?.id ?? ''), { timeoutMs: 8000 }).catch(() => undefined),
+    ])
+    if (!accept() || !partnerRead.current.ready) return
+    if (`${moodDateKey()}:${partnerRead.current.value?.id ?? 'solo'}` !== stamp) { reads.invalidate('results'); return }
+    if (lifetime !== undefined) setLifetimeWLT(computeLifetimeWLT(lifetime))
+    if (weekly !== undefined) setWeeklyChampion(weekly)
+    if (lifetime !== undefined && weekly !== undefined) historyStamp.current = stamp
+  }, force), [reads, currentReadScope]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Love meter — interactions since Monday 00:00. The window is
-    // weekly so the scoreboard resets every Monday automatically: a
-    // partner can come back from behind without staring down a
-    // 30-day deficit.
-    const { data: interactions, error: interactionsError } = await interactionsP
-    if (interactionsError) loadFailedRef.current = true
+  const fetchAll = useCallback(async (force = false) => {
+    if (!currentReadScope.actor || !currentReadScope.home || !isCurrent()) return
+    // Messages are never held behind a stalled partner/history request.
+    const independent = Promise.all([refreshMessages(), refreshHousehold()])
+    await refreshPartner()
+    if (isCurrent() && partnerRead.current.ready) await Promise.all([refreshMoods(), refreshCare(), refreshResults(force)])
+    await independent
+  }, [currentReadScope, isCurrent, refreshMessages, refreshHousehold, refreshPartner, refreshMoods, refreshCare, refreshResults])
 
-    // Not gated on `p`. Solo, Eren takes the second seat here exactly as he
-    // does in the settlement — same week key, same point map — so the live
-    // race and Monday's verdict cannot disagree. Gating it was why a player
-    // alone saw the champion popup on Monday having never watched the week it
-    // decided. `p` is the freshly-fetched partner, not the loading-state null,
-    // so a real couple can never fall into the solo branch.
-    if (interactions) {
-      setLoveMeter(p
-        ? computeLoveMeter(
-          interactions as Interaction[],
-          user.id, profile.name,
-          p.id, p.name,
-        )
-        : computeLoveMeter(
-          interactions as Interaction[],
-          user.id, profile.name,
-          // Named at the return below, not here, so a rename needs no refetch.
-          EREN_OPPONENT_ID, '',
-          // His pace so far, not his week-end total: flat, he is a wall the
-          // player is 200 points behind every Monday. At the end of the week
-          // this equals the number that settles.
-          erenWeeklyPace(
-            thisIsoWeekKey(),
-            (Date.now() - startOfWeek().getTime()) / (7 * 24 * 60 * 60 * 1000),
-          ),
-        ))
-    }
+  useEffect(() => { void fetchAll() }, [fetchAll])
 
-    // "We Cared" co-op progress — useful care actions this week (no extra read:
-    // the same interactions the love meter uses). Split by person for the
-    // detail sheet's breakdown.
-    //
-    // Deliberately OUTSIDE the `p` branch above. The counting used to live
-    // inside it, which is why simply un-hiding the bar for a solo household
-    // showed 0 forever: there was nothing incrementing it. With an empty
-    // partnerId the split still works — `partner` stays 0 and `combined`
-    // equals `mine`.
-    if (interactions) {
-      const coop = countCoopByUser(interactions as Interaction[], user.id, p?.id ?? '')
-      setCoopMine(coop.mine)
-      setCoopPartner(coop.partner)
-      setCoopCombined(coop.combined)
-    }
-
-    // Lifetime W-L-T: backfill any missing daily snapshots in the lookback
-    // window, then aggregate. Backfill is idempotent (ignoreDuplicates).
-    {
-      const rows = await lifetimeP
-      if (rows !== undefined) setLifetimeWLT(computeLifetimeWLT(rows))
-      // undefined = failed — UI hides empty W-L-T
-    }
-
-    // Last week's Care Battle result. Computed once and persisted; if I won
-    // and haven't been paid yet, the consumer surfaces the popup.
-    {
-      const wk = await weeklyP
-      if (wk !== undefined) setWeeklyChampion(wk)
-    }
-
-    // My co-op claim row for this week — tells the bar whether I've already
-    // pocketed my share. A failed read keeps the previous row + self-heals.
-    {
-      const { data: coopData, error: coopError } = await coopRowP
-      if (coopError) loadFailedRef.current = true
-      else { setCoopRow((coopData as CoopGoalRow | null) ?? null); setCoopRowLoaded(true) }
-    }
-
-    // Journal messages.
-    //
-    // Eren-delivered messages (via_eren = true) are filtered out here so
-    // they never appear in the heart-button journal — they live on the note
-    // board instead, and also fire the ErenMessagePopup once on arrival.
-    const { data: msgs, error: msgsError } = await journalP
-    if (msgsError) loadFailedRef.current = true
-    if (msgs) {
-      setJournal(msgs)
-      // Count messages from partner that arrived AFTER the last time user read
-      const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
-      const unread = msgs.filter((m: JournalMessage) => m.sender_id !== user.id && new Date(m.created_at).getTime() > lastReadMs).length
-      setUnreadCount(unread)
-    }
-
-    // Note board.
-    const { data: noteRows, error: notesError } = await notesP
-    if (notesError) loadFailedRef.current = true
-    else if (noteRows) setNotes(noteRows as JournalMessage[])
-
-    setLoading(false)
-  }, [profile?.household_id, user?.id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { fetchAll() }, [fetchAll])
+  const refetch = useCallback(() => fetchAll(true), [fetchAll])
 
   // Re-fetch on window focus + listen for read-timestamp changes
   useEffect(() => {
     if (!user?.id) return
     const recount = () => {
+      if (!isCurrent()) return
       const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
       setJournal(prev => {
         const unread = prev.filter(m => m.sender_id !== user.id && new Date(m.created_at).getTime() > lastReadMs).length
@@ -354,7 +274,7 @@ function useCoupleImpl() {
       // deleted precisely because it should not have been sent. Returning to
       // the app is the natural moment to reconcile, and it also self-heals a
       // load that failed during a Supabase outage.
-      fetchAll()
+      void fetchAll()
     }
     const onStorage = (e: StorageEvent) => {
       if (e.key === `eren_journal_read_${user.id}`) recount()
@@ -370,7 +290,7 @@ function useCoupleImpl() {
       window.removeEventListener('eren:journal-read', onMarkedRead)
       clearInterval(interval)
     }
-  }, [user?.id, fetchAll])
+  }, [user?.id, fetchAll, isCurrent])
 
   // ── Note board read marker ──
   // Mirrors localStorage into state so `unreadNotes` can be derived. Synced on
@@ -378,7 +298,7 @@ function useCoupleImpl() {
   useEffect(() => {
     if (!user?.id) return
     const key = `eren_notes_read_${user.id}`
-    const sync = () => setNotesReadAt(new Date(localStorage.getItem(key) ?? 0).getTime())
+    const sync = () => { if (isCurrent()) setNotesReadAt(new Date(localStorage.getItem(key) ?? 0).getTime()) }
     sync()
     const onStorage = (e: StorageEvent) => { if (e.key === key) sync() }
     const offForeground = onForeground(sync)
@@ -389,7 +309,7 @@ function useCoupleImpl() {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('eren:notes-read', sync)
     }
-  }, [user?.id])
+  }, [user?.id, isCurrent])
 
   // ── Gift tray marker ──
   // Same mirroring contract as the board marker above, with one extra rule:
@@ -402,6 +322,7 @@ function useCoupleImpl() {
     if (!user?.id) return
     const key = `eren_gifts_seen_${user.id}`
     const sync = () => {
+      if (!isCurrent()) return
       const raw = localStorage.getItem(key)
       if (raw === null) {
         const now = new Date().toISOString()
@@ -421,7 +342,7 @@ function useCoupleImpl() {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('eren:gifts-seen', sync)
     }
-  }, [user?.id])
+  }, [user?.id, isCurrent])
 
   // ── Realtime: listen for new journal messages ──
   useEffect(() => {
@@ -435,6 +356,10 @@ function useCoupleImpl() {
         filter: `household_id=eq.${profile.household_id}`,
       }, payload => {
         const msg = payload.new as JournalMessage
+        if (!isCurrent() || msg.household_id !== profile.household_id || seenMessages.current.has(msg.id)) return
+        seenMessages.current.add(msg.id)
+        // A snapshot started before this INSERT must not erase it on completion.
+        reads.invalidate('messages')
         // Eren-delivered rows are NOTES, not chat: they get pinned to the
         // board and pop the ErenMessagePopup, and they return before the
         // setJournal below — falling through to it is what used to make a
@@ -443,7 +368,7 @@ function useCoupleImpl() {
           // …but only written notes and gifts get pinned. A nudge still pops,
           // it just leaves nothing behind.
           if (!isNudgeRow(msg)) {
-            setNotes(prev => prev.some(n => n.id === msg.id) ? prev : [msg, ...prev])
+            setNotes(prev => [msg, ...prev].slice(0, 200))
           }
           if (msg.sender_id !== user.id) {
             // Read localStorage rather than notesReadAt — this handler is
@@ -461,12 +386,14 @@ function useCoupleImpl() {
             setUnreadCount(c => c + 1)
           }
         }
-        setJournal(prev => [msg, ...prev])
+        setJournal(prev => [msg, ...prev].slice(0, 50))
       })
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED' && isCurrent()) { reads.invalidate('messages'); void refreshMessages() }
+      })
 
     return () => { supabase.removeChannel(ch) }
-  }, [profile?.household_id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.household_id, user?.id, isCurrent, reads, refreshMessages]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Send message (with optional food-gift attachment) ──
   // `gift` is moved from sender's per-user food pile → partner's pile BEFORE
@@ -487,7 +414,7 @@ function useCoupleImpl() {
   // and a retry would post it twice. The journal sheet keeps the draft and
   // says so instead.
   const sendMessage = useCallback(async (text: string, gift?: GiftItem | null, viaEren = false): Promise<boolean> => {
-    if (!user?.id || !profile?.household_id) return false
+    if (!user?.id || !profile?.household_id || !isCurrent()) return false
     const trimmed = text.trim()
     if (!trimmed && !gift) return false
     // The id comes back because the push route now needs it: a notification
@@ -500,6 +427,7 @@ function useCoupleImpl() {
       gift_item: gift ?? null,
       via_eren: viaEren,
     }).select('id').single()
+    if (!isCurrent()) return false
     if (error || !row) {
       console.error('[useCouple] message insert failed', error)
       return false
@@ -529,7 +457,7 @@ function useCoupleImpl() {
       }),
     }).catch(() => { /* best-effort */ })
     return true
-  }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.household_id, isCurrent]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Send an Eren nudge (one-tap affectionate gesture) ──
   // Inserts a via_eren journal row carrying the SketchEren pose so the
@@ -539,7 +467,7 @@ function useCoupleImpl() {
   // flag still routes it to the popup only (out of the journal list).
   // No cooldown — spamming nudges is part of the fun.
   const sendNudge = useCallback(async (nudge: NudgeDef): Promise<boolean> => {
-    if (!user?.id || !profile?.household_id) return false
+    if (!user?.id || !profile?.household_id || !isCurrent()) return false
 
     // The "Thinking" nudge picks its heart emoji from the sender's own
     // profile colour rather than a hardcoded address.
@@ -552,7 +480,7 @@ function useCoupleImpl() {
       via_eren: true,
       eren_state: nudge.state,
     }).select('id').single()
-    if (error || !row) return false
+    if (!isCurrent() || error || !row) return false
 
     fetch('/api/notify-message', {
       method: 'POST',
@@ -578,11 +506,11 @@ function useCoupleImpl() {
     } catch { /* ignore */ }
 
     return true
-  }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.household_id, profile?.heart, isCurrent]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mark all as read (saves timestamp to localStorage) ──
   const markAllRead = useCallback(() => {
-    if (!user?.id) return
+    if (!user?.id || !isCurrent()) return
     // Stamp slightly in the future so lexicographic comparisons can't leave
     // an edge-case unread message from the same millisecond.
     localStorage.setItem(`eren_journal_read_${user.id}`, new Date(Date.now() + 1000).toISOString())
@@ -591,16 +519,16 @@ function useCoupleImpl() {
     // Notify other useCouple instances in the same tab — storage events
     // don't fire in the tab that did the write.
     try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
-  }, [user?.id])
+  }, [user?.id, isCurrent])
 
   // ── Mark the note board as seen ──
   const markNotesRead = useCallback(() => {
-    if (!user?.id) return
+    if (!user?.id || !isCurrent()) return
     const stamp = Date.now() + 1000
     localStorage.setItem(`eren_notes_read_${user.id}`, new Date(stamp).toISOString())
     setNotesReadAt(stamp)
     try { window.dispatchEvent(new Event('eren:notes-read')) } catch { /* ignore */ }
-  }, [user?.id])
+  }, [user?.id, isCurrent])
 
   // Stamp the gift tray as seen. The tray passes nothing — it showed
   // everything that was pending, so "now" is honest. The realtime popup
@@ -609,20 +537,21 @@ function useCoupleImpl() {
   // in the tray next launch. Monotonic on purpose: the marker only ever
   // moves forward, whichever caller writes it.
   const markGiftsSeen = useCallback((through?: string) => {
-    if (!user?.id) return
+    if (!user?.id || !isCurrent()) return
     const key = `eren_gifts_seen_${user.id}`
     const at = through ? new Date(through).getTime() : Date.now() + 1000
     const stamp = Math.max(at, new Date(localStorage.getItem(key) ?? 0).getTime())
     localStorage.setItem(key, new Date(stamp).toISOString())
     setGiftsSeenAt(stamp)
     try { window.dispatchEvent(new Event('eren:gifts-seen')) } catch { /* ignore */ }
-  }, [user?.id])
+  }, [user?.id, isCurrent])
 
   // ── Clear popup + mark as read ──
   // The popup carries any of the three kinds, so it clears whichever marker it
   // actually belongs to: dismissing a note must not silence the chat, and a
   // nudge — which is on no list at all — must not silence either.
   const dismissPopup = useCallback(() => {
+    if (!isCurrent()) return
     const msg = newMessage
     setNewMessage(null)
     if (!user?.id || !msg) return
@@ -637,13 +566,14 @@ function useCoupleImpl() {
     localStorage.setItem(`eren_journal_read_${user.id}`, new Date(Date.now() + 1000).toISOString())
     setUnreadCount(0)
     try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
-  }, [user?.id, newMessage, markNotesRead, markGiftsSeen])
+  }, [user?.id, newMessage, markNotesRead, markGiftsSeen, isCurrent])
 
   // ── Claim the weekly Care Battle payout + dismiss the popup ─────────────
   // Pays the 100-coin bonus on first successful claim (atomic via CAS on
   // payout_paid). Always stamps acknowledged=true so the popup never re-fires.
   const claimWeeklyChampion = useCallback(async (): Promise<boolean> => {
-    if (!user?.id || !weeklyChampion) return false
+    if (!user?.id || !weeklyChampion || !isCurrent()) return false
+    reads.invalidate('results')
     let paid = false
     if (weeklyChampion.outcome === 'win' && !weeklyChampion.payout_paid) {
       paid = await claimWeeklyPayout(supabase, user.id, weeklyChampion.iso_week)
@@ -654,15 +584,17 @@ function useCoupleImpl() {
       }
     }
     await acknowledgeWeeklyResult(supabase, user.id, weeklyChampion.iso_week)
+    if (!isCurrent()) return paid
+    reads.invalidate('results')
     setWeeklyChampion({ ...weeklyChampion, payout_paid: paid || weeklyChampion.payout_paid, acknowledged: true })
     return paid
-  }, [user?.id, weeklyChampion]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, weeklyChampion, isCurrent, reads]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Claim my share of the "We Cared" co-op reward ──────────────────────────
   // Pays COOP_REWARD_COINS once (atomic CAS on payout_paid) when the household
   // has hit the shared target this week. Returns true if I was just paid.
   const claimCoopGoal = useCallback(async (): Promise<boolean> => {
-    if (!user?.id || !profile?.household_id) return false
+    if (!user?.id || !profile?.household_id || !isCurrent()) return false
     const target = coopTargetFor(!!partner)
     if (coopCombined < target) return false
     if (coopRow?.payout_paid) return false
@@ -670,6 +602,8 @@ function useCoupleImpl() {
     if (coins > 0) {
       window.dispatchEvent(new CustomEvent('eren:coop-payout', { detail: { coins } }))
     }
+    if (!isCurrent()) return coins > 0
+    reads.invalidate('care')
     // Stamp locally so the bar flips to "complete" without a refetch (CAS is
     // the source of truth; a sibling tab that lost the race just shows complete).
     setCoopRow({
@@ -683,7 +617,7 @@ function useCoupleImpl() {
     })
     setCoopRowLoaded(true)
     return coins > 0
-  }, [user?.id, profile?.household_id, coopCombined, coopRow, partner]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.household_id, coopCombined, coopRow, partner, isCurrent, reads]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Delete one of your own messages. /terms §10 says you may remove
   // individual items before deleting your account; for journal rows that was
@@ -693,13 +627,15 @@ function useCoupleImpl() {
   // note board are backed by this table, so one function covers both — the
   // local removal touches both lists rather than guessing which the row is in.
   const deleteMessage = useCallback(async (id: string): Promise<boolean> => {
-    if (!user?.id) return false
+    if (!user?.id || !isCurrent()) return false
     const { error } = await supabase.from('couple_journal').delete().eq('id', id)
-    if (error) return false
+    if (!isCurrent() || error) return false
+    reads.invalidate('messages')
     setJournal(prev => prev.filter(m => m.id !== id))
     setNotes(prev => prev.filter(m => m.id !== id))
+    setNewMessage(prev => prev?.id === id ? null : prev)
     return true
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, isCurrent, reads]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const coopGoal: CoopGoalState = {
     combined: coopCombined,
@@ -732,11 +668,12 @@ function useCoupleImpl() {
 
   // Solo, the second seat is the household's cat, called whatever it is called
   // right now. Memoised so the meter keeps its identity between renders.
-  const namedLoveMeter = useMemo(() => (
-    loveMeter && loveMeter.user2.id === EREN_OPPONENT_ID
-      ? { ...loveMeter, user2: { ...loveMeter.user2, name: cat.name } }
-      : loveMeter
-  ), [loveMeter, cat.name])
+  const namedLoveMeter = useMemo(() => loveMeter ? { ...loveMeter,
+    user1: { ...loveMeter.user1, name: profile?.name ?? '' },
+    user2: { ...loveMeter.user2, name: loveMeter.user2.id === EREN_OPPONENT_ID ? cat.name : partner?.name ?? loveMeter.user2.name },
+  } : null, [loveMeter, cat.name, profile?.name, partner?.name])
+
+  const readyScope = dataScope === currentReadScope
 
   return {
     // A household of one, KNOWN to be so. Deliberately false while the fetch
@@ -745,17 +682,18 @@ function useCoupleImpl() {
     // settlement, the battle snapshot) must not treat a not-yet-loaded couple
     // as solo and settle them against Eren. `partnerUnknown` is the outage
     // half of that — see the bail in fetchAll.
-    isSolo: !loading && !partner && !partnerUnknown,
-    partner, partnerStreak,
-    loveMeter: namedLoveMeter, anniversary, journal, unreadCount,
-    notes, unreadNotes, markNotesRead,
-    giftArrivals, markGiftsSeen,
-    newMessage, dismissPopup,
-    partnerMood, partnerMoodWeek,
-    lifetimeWLT, weeklyChampion, claimWeeklyChampion,
-    coopGoal, claimCoopGoal,
-    sendMessage, sendNudge, deleteMessage, markAllRead, loading,
-    refetch: fetchAll,
+    isSolo: readyScope && !loading && !partner && !partnerUnknown,
+    partner: readyScope ? partner : null, partnerStreak: readyScope ? partnerStreak : null,
+    loveMeter: readyScope ? namedLoveMeter : null, anniversary: readyScope ? anniversary : null,
+    householdSince: readyScope ? householdSince : null, journal: readyScope ? journal : [], unreadCount: readyScope ? unreadCount : 0,
+    notes: readyScope ? notes : [], unreadNotes: readyScope ? unreadNotes : 0, markNotesRead,
+    giftArrivals: readyScope ? giftArrivals : [], markGiftsSeen,
+    newMessage: readyScope ? newMessage : null, dismissPopup,
+    partnerMood: readyScope ? partnerMood : null, partnerMoodWeek: readyScope ? partnerMoodWeek : [],
+    lifetimeWLT: readyScope ? lifetimeWLT : null, weeklyChampion: readyScope ? weeklyChampion : null, claimWeeklyChampion,
+    coopGoal: readyScope ? coopGoal : { ...coopGoal, loaded: false, claimed: false, goalMet: false, combined: 0, mine: 0, partner: 0 }, claimCoopGoal,
+    sendMessage, sendNudge, deleteMessage, markAllRead, loading: !readyScope || loading,
+    refetch,
   }
 }
 

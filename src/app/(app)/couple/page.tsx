@@ -16,8 +16,6 @@ import { PageSkeleton } from '@/components/loading/LoadingSkeleton'
 // journal read. The back button went: the tab bar is the way out now.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
@@ -51,17 +49,16 @@ const firstName = (name: string | null | undefined): string => (name ?? '').trim
 const SEND_FAILED = "That didn't send. Check your connection and try again."
 
 export default function CouplePage() {
-  const supabase = useMemo(() => createClient(), [])
   const { user, profile } = useAuth()
+  const householdId = profile?.household_id
   const { setHideStats } = useCare()
   const {
-    partner, partnerStreak, isSolo, loveMeter, anniversary, journal,
+    partner, partnerStreak, isSolo, loveMeter, anniversary, householdSince, journal,
     partnerMood, partnerMoodWeek, lifetimeWLT, weeklyChampion, claimWeeklyChampion,
     notes, unreadNotes, sendMessage, sendNudge, deleteMessage, markAllRead, loading, refetch,
   } = useCouple()
   const { streak: myStreak } = useTasks()
   const { stats } = useErenStats(profile?.household_id ?? null)
-  const householdId = profile?.household_id ?? null
 
   // The Meadow page carries its own title row; the old HUD steps aside here.
   useEffect(() => {
@@ -96,27 +93,7 @@ export default function CouplePage() {
     return () => clearInterval(t)
   }, [])
 
-  // The day the household began, for the postmark on the hero. useCouple only
-  // keeps the day COUNT, and working the date back from it lands a day late
-  // whenever the household was made in the evening.
-  const [since, setSince] = useState<Date | null>(null)
-  useEffect(() => {
-    if (!householdId) return
-    let live = true
-    void withRetry(() => supabase
-      .from('households')
-      .select('created_at')
-      .eq('id', householdId)
-      .maybeSingle())
-      .then(({ data, error }) => {
-        if (!live) return
-        // A failed read only costs the postmark (the count comes from
-        // useCouple); the next visit tries again.
-        if (error) { console.error('[Us] household read failed', error); return }
-        if (data?.created_at) setSince(new Date(data.created_at as string))
-      })
-    return () => { live = false }
-  }, [supabase, householdId])
+  const since = useMemo(() => householdSince ? new Date(householdSince) : null, [householdSince])
 
   // ── The love tray ──
   // The four NUDGE_DEFS send straight from a tap. One at a time: a second tap

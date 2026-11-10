@@ -255,9 +255,10 @@ export async function backfillDailyResults(
   if (existing) return existing
   const promise = doBackfillDailyResults(supabase, householdId, myId, partnerId, daysBack)
   backfillInFlight.set(key, promise)
-  promise.finally(() => {
+  const clear = () => {
     if (backfillInFlight.get(key) === promise) backfillInFlight.delete(key)
-  })
+  }
+  void promise.then(clear, clear)
   return promise
 }
 
@@ -273,11 +274,12 @@ async function doBackfillDailyResults(
 
   // Find the dates I already have.
   const oldest = targetDates[targetDates.length - 1]
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('daily_battle_results')
     .select('date')
     .eq('user_id', myId)
     .gte('date', oldest)
+  if (existingError) throw new Error('Could not read existing daily results')
   const have = new Set((existing ?? []).map(r => r.date as string))
   const missing = targetDates.filter(d => !have.has(d))
   if (missing.length === 0) return []
@@ -290,12 +292,13 @@ async function doBackfillDailyResults(
   endDate.setDate(endDate.getDate() + 1)
   const endIso = endDate.toISOString()
 
-  const { data: interactions } = await supabase
+  const { data: interactions, error: interactionsError } = await supabase
     .from('interactions')
     .select('*')
     .eq('household_id', householdId)
     .gte('created_at', startIso)
     .lt('created_at', endIso)
+  if (interactionsError) throw new Error('Could not read care history')
   const all = (interactions ?? []) as Interaction[]
 
   // The same window's privileges. Without this a Double Hour spent last night
@@ -307,7 +310,7 @@ async function doBackfillDailyResults(
   // fetchEffects filters on created_at. Without the slack the live bar would
   // count those and the snapshot would not.
   const effectsSince = new Date(new Date(startIso).getTime() - 25 * 3600_000).toISOString()
-  const effects = await fetchEffects(supabase, householdId, effectsSince)
+  const effects = await fetchEffects(supabase, householdId, effectsSince, true)
 
   // Bucket by local-date string so the date semantics match the snapshot key.
   const byDate = new Map<string, Interaction[]>()
@@ -365,8 +368,9 @@ async function doBackfillDailyResults(
       delete copy.twist_id
       return copy
     })
-    ;({ data: inserted } = await upsert(stripped))
+    ;({ data: inserted, error } = await upsert(stripped))
   }
+  if (error) throw new Error('Could not save daily results')
 
   return (inserted ?? []) as DailyBattleRow[]
 }
@@ -419,11 +423,12 @@ export async function ensureLastWeekResult(
   ensureLastWeekInFlight.set(inFlightKey, promise)
   // Clear the latch when the work settles so a later refetch (e.g. on
   // window focus after midnight) can compute again.
-  promise.finally(() => {
+  const clear = () => {
     if (ensureLastWeekInFlight.get(inFlightKey) === promise) {
       ensureLastWeekInFlight.delete(inFlightKey)
     }
-  })
+  }
+  void promise.then(clear, clear)
   return promise
 }
 
@@ -436,21 +441,23 @@ async function doEnsureLastWeekResult(
   const { key, start, end } = lastIsoWeek()
 
   // Already exists?
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('weekly_battle_results')
     .select('*')
     .eq('user_id', myId)
     .eq('iso_week', key)
     .maybeSingle()
+  if (existingError) throw new Error('Could not read the weekly result')
   if (existing) return existing as WeeklyBattleRow
 
   // Compute from last-week interactions.
-  const { data: interactions } = await supabase
+  const { data: interactions, error: interactionsError } = await supabase
     .from('interactions')
     .select('*')
     .eq('household_id', householdId)
     .gte('created_at', start.toISOString())
     .lt('created_at', end.toISOString())
+  if (interactionsError) throw new Error('Could not read weekly care history')
 
   const sp = scoreWeekly((interactions ?? []) as Interaction[], myId, partnerId, key)
   // Solo, Eren's score is never 0, so the paired test would settle a week the
@@ -473,13 +480,14 @@ async function doEnsureLastWeekResult(
   // returning 409, matching the daily-snapshot pattern. If the insert
   // happened we get the row back; if it was deduped, fall through to a
   // refetch so we still return the winning instance's data.
-  const { data: inserted } = await supabase
+  const { data: inserted, error: insertError } = await supabase
     .from('weekly_battle_results')
     .upsert([row], {
       onConflict: 'household_id,user_id,iso_week',
       ignoreDuplicates: true,
     })
     .select()
+  if (insertError) throw new Error('Could not save the weekly result')
   if (inserted && inserted.length > 0) return inserted[0] as WeeklyBattleRow
 
   // Conflict path: the row was just inserted by a sibling. Re-fetch it.
@@ -489,6 +497,7 @@ async function doEnsureLastWeekResult(
     .eq('user_id', myId)
     .eq('iso_week', key)
     .maybeSingle()
+  if (refetch.error) throw new Error('Could not confirm the weekly result')
   return (refetch.data as WeeklyBattleRow | null) ?? row
 }
 

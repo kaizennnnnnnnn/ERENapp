@@ -136,6 +136,7 @@ export async function fetchEffects(
   supabase: SupabaseClient,
   householdId: string,
   sinceIso: string,
+  strict = false,
 ): Promise<TrophyEffectRow[]> {
   const { data, error } = await supabase
     .from('trophy_effects')
@@ -143,9 +144,12 @@ export async function fetchEffects(
     .eq('household_id', householdId)
     .gte('created_at', sinceIso)
     .order('created_at', { ascending: true })
-  // A missing table (migration not pasted yet) or an outage reads as "no
-  // effects", which is the correct fallback: scoring is simply unmodified.
-  if (error) return []
+  // Live previews may fall back to no effects; persisted scoring must retry
+  // outages rather than permanently settling a paid effect as absent.
+  if (error) {
+    if (strict && !['42P01', 'PGRST205'].includes(error.code ?? '')) throw new Error('Could not read scoring effects')
+    return []
+  }
   return (data ?? []) as TrophyEffectRow[]
 }
 
