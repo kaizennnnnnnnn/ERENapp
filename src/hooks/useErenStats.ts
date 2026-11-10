@@ -19,6 +19,7 @@ import { pendingWashSession, saveWashSession, mergeWashStats, washSessionError, 
 import { pendingSleepSession, saveSleepSession, mergeSleepStats, sleepSessionError, type SleepSessionSave, type SleepAction } from '@/lib/sleepSessionSaves'
 import { mergeInventoryStats, type InventoryItemSave } from '@/lib/inventoryItemSaves'
 import { boundedRequest } from '@/lib/boundedRequest'
+import { pendingMedicineSession, saveMedicineSession, mergeMedicineStats, medicineSessionError, type MedicineSessionSave } from '@/lib/medicineSessionSaves'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -378,6 +379,20 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     return () => { sleepMounted.current = false; sleepEpoch.current++; off() }
   }, [userId, householdId])
 
+  const medicineScope = useRef({ householdId, userId })
+  if (medicineScope.current.userId !== userId || medicineScope.current.householdId !== householdId) medicineScope.current = { householdId, userId }
+  const currentMedicineScope = medicineScope.current
+  const medicineEpoch = useRef(0), medicineMounted = useRef(true), medicineLock = useRef<symbol | null>(null)
+  const [medicineSaveBusy, setMedicineSaveBusy] = useState(false)
+  const [medicineSavePending, setMedicineSavePending] = useState(false)
+  const [medicineSaveIssue, setMedicineSaveIssue] = useState<{ userId: string; householdId: string; message: string } | null>(null)
+  useEffect(() => {
+    medicineMounted.current = true; medicineLock.current = null; setMedicineSaveBusy(false); setMedicineSaveIssue(null)
+    const sync = () => setMedicineSavePending(Boolean(userId && householdId && pendingMedicineSession(userId, householdId)))
+    sync(); const off = onForeground(sync)
+    return () => { medicineMounted.current = false; medicineEpoch.current++; off() }
+  }, [userId, householdId])
+
   const runFoodAction = useCallback(async (action: FoodAction, recover = false): Promise<FoodActionResult> => {
     if (foodScope.current.userId !== userId || foodScope.current.householdId !== householdId) return { ok: false, reason: 'household_changed' }
     if (!userId || !householdId || statsRef.current?.household_id !== householdId) return { ok: false, reason: 'not_ready' }
@@ -715,7 +730,40 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     }
   }, [userId, householdId, currentSleepScope]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const finishMedicineSession = useCallback(async (recover = false): Promise<{ success: boolean; message: string; changed?: boolean }> => {
+    const generation = medicineEpoch.current
+    const active = () => medicineMounted.current && medicineEpoch.current === generation && medicineScope.current === currentMedicineScope
+    const failure = (reason?: string) => ({ success: false, message: medicineSessionError(reason) })
+    if (!userId || !householdId || !active()) return failure('session_changed')
+    if (statsRef.current?.household_id !== householdId) return failure('loading')
+    if (medicineLock.current) return failure('busy')
+    const token = Symbol('medicine-session'); medicineLock.current = token; setMedicineSaveBusy(true); setMedicineSaveIssue(null)
+    try {
+      const response = await saveMedicineSession(supabase, userId, householdId, recover)
+      if (!active()) return failure('session_changed')
+      if (!response.ok) {
+        setMedicineSaveIssue({ userId, householdId, message: medicineSessionError(response.reason) })
+        return failure(response.reason)
+      }
+      const saved = response as MedicineSessionSave
+      statsRef.current = mergeMedicineStats(statsRef.current, saved.stats)
+      setStats(prev => mergeMedicineStats(prev, saved.stats))
+      if (saved.changed) window.dispatchEvent(new CustomEvent('eren:my-action', { detail: { household_id: householdId, user_id: userId, action_type: 'medicine' } }))
+      return { success: true, changed: saved.changed, message: saved.changed ? 'Treatment saved!' : 'No medicine needed now.' }
+    } catch {
+      if (active()) setMedicineSaveIssue({ userId, householdId, message: medicineSessionError() })
+      return failure()
+    } finally {
+      if (medicineLock.current === token) medicineLock.current = null
+      if (active()) { setMedicineSaveBusy(false); setMedicineSavePending(Boolean(pendingMedicineSession(userId, householdId))) }
+    }
+  }, [userId, householdId, currentMedicineScope]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const applyAction = useCallback(async (userId: string, action: ActionType): Promise<{ success: boolean; message: string }> => {
+    if (action === 'medicine') {
+      if (userId !== currentMedicineScope.userId) return { success: false, message: medicineSessionError('session_changed') }
+      return finishMedicineSession()
+    }
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
     const cfg = ACTION_CONFIGS[action]
     // Apply any decay accumulated since the last update, THEN the action delta.
@@ -728,7 +776,7 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     const newS  = Math.round(clampStat(base.sleep_quality + (cfg.deltas.sleep_quality ?? 0)))
     const newW  = Math.round(Math.max(2, Math.min(10, base.weight + (cfg.deltas.weight ?? 0))) * 100) / 100
     const newCl = clampStat((base.cleanliness ?? 100) + (cfg.deltas.cleanliness ?? 0))
-    const newSick = action === 'medicine' ? false : shouldBecomeSick({ cleanliness: newCl, sleep_quality: newS, weight: newW })
+    const newSick = shouldBecomeSick({ cleanliness: newCl, sleep_quality: newS, weight: newW })
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
     const sleepingFlag = action === 'sleep' ? true : base.is_sleeping
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag } : prev)
@@ -755,7 +803,7 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     // The app's rule is pixel art, not emoji, and a 🍗 in a Press Start 2P line
     // is the single thing that made these toasts read as unfinished.
     return { success: true, message: `${catText(cfg.label, catWordsFromRow(stats))} done!` }
-  }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stats, householdId, fetchStats, currentMedicineScope, finishMedicineSession]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const wakeUp = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     return finishSleepSession('wake')
@@ -927,6 +975,9 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     finishPlaySession, playSaveBusy,
     finishWashSession, washSaveBusy,
     finishSleepSession, sleepSaveBusy,
+    finishMedicineSession, medicineSaveBusy,
+    medicineSavePending: medicineSavePending && Boolean(userId && householdId && pendingMedicineSession(userId, householdId)),
+    medicineSaveError: medicineSaveIssue?.userId === userId && medicineSaveIssue?.householdId === householdId ? medicineSaveIssue.message : null,
     sleepSavePending: sleepSavePending && userId && householdId ? pendingSleepSession(userId, householdId)?.action ?? null : null,
     sleepSaveError: sleepSaveIssue?.userId === userId && sleepSaveIssue?.householdId === householdId ? sleepSaveIssue.message : null,
     washSavePending: washSavePending && Boolean(userId && householdId && pendingWashSession(userId, householdId)),

@@ -25,6 +25,10 @@ for (const Component of [Checkup, Medicine, Lollipop]) {
   assert.doesNotMatch(normal + busy, /font-pixel|linear-gradient|text-shadow/)
 }
 const healthy = html(Report, { issues: [], weight: 4.1, energy: 82.3 })
+for(const state of ['recover','recovering']){
+  const rendered=html(Medicine,{state,onClick(){}});assert.match(rendered,/Retry treatment save/)
+  assert.equal(/aria-busy="true"/.test(rendered),state==='recovering');assert.equal(/ disabled=""/.test(rendered),state==='recovering')
+}
 assert.match(healthy, /Mochi is in great shape!/)
 assert.match(healthy, /4.1 kg/)
 assert.match(healthy, /82%/)

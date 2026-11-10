@@ -3,20 +3,24 @@
 import { Card, M, MeadowIcon, PrimaryButton, ROOM_HEADER_CLEARANCE, Tag, TextButton } from '@/components/meadow'
 import { useCat } from '@/hooks/useCat'
 
-export type ClinicPhase = 'loading' | 'sick' | 'giving' | 'treated' | 'healthy'
+export type ClinicPhase = 'loading' | 'sick' | 'giving' | 'recover' | 'recovering' | 'treated' | 'healthy'
 
-export default function ClinicControls({ phase, reasons, weight, onGive, onClose }: {
+export default function ClinicControls({ phase, reasons, weight, onGive, onClose, saveError, disabled = false }: {
   phase: ClinicPhase
   reasons: string[]
   weight: number
   onGive: () => void
   onClose: () => void
+  saveError?: string | null
+  disabled?: boolean
 }) {
   const cat = useCat()
   const finished = phase === 'treated' || phase === 'healthy'
-  const giving = phase === 'giving'
-  const label = phase === 'loading' ? 'Loading' : giving ? 'Treating' : phase === 'sick' ? 'Needs care' : phase === 'treated' ? 'Medicine given' : 'Healthy'
+  const giving = phase === 'giving' || phase === 'recovering'
+  const recover = phase === 'recover' || phase === 'recovering'
+  const label = phase === 'loading' ? 'Loading' : recover ? 'Confirm treatment' : giving ? 'Treating' : phase === 'sick' ? 'Needs care' : phase === 'treated' ? 'Medicine given' : 'Healthy'
   const message = phase === 'loading' ? cat.t('Checking on {name}...')
+    : recover ? giving ? 'Checking the saved treatment...' : saveError ?? 'Your last treatment needs confirmation. Retry checks the same dose.'
     : giving ? 'Saving the treatment...'
     : phase === 'treated' ? (reasons.length > 0 ? 'Medicine saved. Keep up the care.' : cat.t('{name} is feeling better.'))
     : phase === 'healthy' ? cat.t('{name} is feeling well.')
@@ -41,10 +45,10 @@ export default function ClinicControls({ phase, reasons, weight, onGive, onClose
     </section>
 
     <div className="meadow-root absolute inset-x-4 z-30" style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', maxWidth: 340, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-      <PrimaryButton full onClick={finished ? onClose : onGive} disabled={phase === 'loading' || giving} busy={giving}
-        ariaLabel={finished ? 'Back home' : cat.t('Give {name} medicine')}
+      <PrimaryButton full onClick={finished ? onClose : onGive} disabled={!finished && (disabled || phase === 'loading' || giving)} busy={giving}
+        ariaLabel={finished ? 'Back home' : recover ? 'Retry treatment save' : cat.t('Give {name} medicine')}
         icon={<MeadowIcon name={finished ? 'home' : 'pill'} size={22} mono color="#FFFFFF" />}>
-        {finished ? 'Back home' : giving ? 'Giving medicine...' : 'Give medicine'}
+        {finished ? 'Back home' : recover ? giving ? 'Checking treatment...' : 'Retry treatment save' : giving ? 'Giving medicine...' : 'Give medicine'}
       </PrimaryButton>
       {!finished && <TextButton onClick={onClose} style={{ color: M.text, background: '#FFFFFF', borderRadius: 999, padding: '0 18px', boxShadow: `0 3px 0 ${M.overArtLip}` }}>Back home</TextButton>}
     </div>

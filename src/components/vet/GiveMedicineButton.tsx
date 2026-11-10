@@ -4,20 +4,21 @@ import { Card, M, MeadowIcon, PrimaryButton } from '@/components/meadow'
 import { useCat } from '@/hooks/useCat'
 
 interface Props {
-  state: 'give' | 'giving'
+  state: 'give' | 'giving' | 'recover' | 'recovering'
   onClick: () => void
   disabled?: boolean
 }
 
 export default function GiveMedicineButton({ state, onClick, disabled }: Props) {
   const cat = useCat()
-  const giving = state === 'giving'
+  const giving = state === 'giving' || state === 'recovering'
+  const recover = state === 'recover' || state === 'recovering'
   return (
-    <PrimaryButton className="meadow-root" full onClick={onClick} disabled={disabled} busy={giving}
-      ariaLabel={cat.t('Give {name} medicine')}
+    <PrimaryButton className="meadow-root" full onClick={onClick} disabled={disabled || giving} busy={giving}
+      ariaLabel={recover ? 'Retry treatment save' : cat.t('Give {name} medicine')}
       icon={<MeadowIcon name="pill" size={24} mono color="#FFFFFF" />}
       style={{ maxWidth: 340 }}>
-      {giving ? 'Giving medicine...' : 'Give medicine'}
+      {recover ? giving ? 'Checking treatment...' : 'Retry treatment save' : giving ? 'Giving medicine...' : 'Give medicine'}
     </PrimaryButton>
   )
 }

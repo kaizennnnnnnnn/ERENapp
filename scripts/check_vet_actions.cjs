@@ -16,7 +16,8 @@ const js = ts.transpileModule([...found.values()].join('\n'), { compilerOptions:
 const setupJs = ts.transpileModule(`const setup = ${setupEffect}`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
 assert.doesNotMatch(text, /daily_wash|useTasks/, 'Medicine must not grant the bathing task or its coins/XP')
 assert.match(fs.readFileSync('src/components/care/WashScene.tsx', 'utf8'), /completeTask\('daily_wash'\)/)
-assert.match(text, /giving \|\| \(!healthy && !medGiven\)/, 'An optimistic cure must not expose the treat button mid-dose')
+assert.match(text, /giving \|\| medicineSaveBusy \|\| \(!healthy && !medGiven\)/, 'An unconfirmed cure must not expose the treat button mid-dose')
+assert.ok(text.indexOf('medicineSavePending || recovering ?') < text.indexOf(': !checkDone ?'), 'Recovery remains available before checkup, even on a healthy reload')
 
 const COOLDOWN = 30 * 60 * 1000, KEY = 'test-lollipop', EPOCH = 1900000000000
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve() }
@@ -27,9 +28,10 @@ function fixture({ healthy = false, store = new Map(), checkDone = true } = {}) 
   let timerId = 0, storageBlocked = false, cancelled = 0
   const ref = current => ({ current })
   const env = {
-    user: { id: 'tester' }, stats: {}, healthy, checkDone, medGiven: false, isSleeping: false,
+    user: { id: 'tester' }, profile: {household_id:'home'}, stats: {household_id:'home'}, healthy, checkDone, medGiven: false, isSleeping: false,
+    saveEpoch:ref(0),saveScope:ref({}),medicineSaveBusy:false,medicineSavePending:false,
     readyAt: 0, now: EPOCH, giving: false, checking: false, lolBusy: false,
-    actionLock: ref(false), mounted: ref(true), careDelays: ref(new Map()), toastTimer: ref(null), celebrationTimer: ref(null),
+    actionLock: ref(null), mounted: ref(true), careDelays: ref(new Map()), toastTimer: ref(null), celebrationTimer: ref(null),
     LOLIPOP_AT_KEY: KEY, LOLIPOP_COOLDOWN_MS: COOLDOWN, CELEBRATE_MS: 7000,
     Date: class extends Date { static now() { return clock.now } }, Event,
     playSound() {}, pickEatPose: () => 0, happyFinisherBeats: () => [{ name: 'finish', ms: 900 }],
@@ -37,6 +39,7 @@ function fixture({ healthy = false, store = new Map(), checkDone = true } = {}) 
     setTimeout(fn, ms) { timers.set(++timerId, { fn, at: clock.now + ms }); return timerId },
     clearTimeout(id) { timers.delete(id) },
     applyAction(user, action) { writes.push([user, action]); return new Promise((resolve, reject) => pending.push({ resolve, reject })) },
+    finishMedicineSession(recover) { writes.push(['tester','medicine']); return new Promise((resolve,reject)=>pending.push({resolve,reject,recover})) },
     localStorage: {
       getItem(key) { if (storageBlocked) throw Error('Blocked'); return store.get(key) ?? null },
       setItem(key, value) { if (storageBlocked) throw Error('Blocked'); store.set(key, value) },
@@ -47,7 +50,8 @@ function fixture({ healthy = false, store = new Map(), checkDone = true } = {}) 
     },
     document: { visibilityState: 'visible', addEventListener: (name, fn) => documentListeners.set(name, fn), removeEventListener: name => documentListeners.delete(name) },
   }
-  for (const name of ['Giving', 'MedGiven', 'Checking', 'CheckDone', 'Toast', 'TreatFlow', 'LolBusy', 'EatIdx', 'Now', 'ReadyAt', 'LolJustGiven']) {
+  env.currentSaveScope=env.saveScope.current
+  for (const name of ['Giving', 'Recovering', 'MedGiven', 'Checking', 'CheckDone', 'Toast', 'TreatFlow', 'LolBusy', 'EatIdx', 'Now', 'ReadyAt', 'LolJustGiven']) {
     const key = name[0].toLowerCase() + name.slice(1)
     env['set' + name] = value => {
       assert.equal(env.mounted.current, true, `No ${key} update after leaving`)
@@ -57,6 +61,7 @@ function fixture({ healthy = false, store = new Map(), checkDone = true } = {}) 
   const api = new Function('env', `with (env) { ${js}; return {${names.join(',')}} }`)(env)
   Object.assign(env, api)
   const cleanup = new Function('env', `with (env) { ${setupJs}; return setup() }`)(env)
+  env.checkDone=checkDone
   async function advance(ms) {
     const end = clock.now + ms
     while (true) {
@@ -69,7 +74,7 @@ function fixture({ healthy = false, store = new Map(), checkDone = true } = {}) 
   return { env, api, cleanup, advance, clock, timers, writes, pending, reactions, events, store, windowListeners, documentListeners,
     blockStorage() { storageBlocked = true }, get cancelled() { return cancelled } }
 }
-const success = { success: true, message: 'Saved' }, failure = { success: false, message: 'Please try again' }
+const success = { success: true, changed:true, message: 'Saved' }, failure = { success: false, message: 'Please try again' }
 async function main() {
   for (const method of ['doCheckup', 'giveMedicine', 'giveLolipop']) {
     for (const guard of ['no-user', 'no-stats', 'sleeping']) {
@@ -77,7 +82,7 @@ async function main() {
       if (guard === 'no-user') f.env.user = null
       if (guard === 'no-stats') f.env.stats = null
       if (guard === 'sleeping') f.env.isSleeping = true
-      await f.api[method](); assert.equal(f.writes.length, 0); assert.equal(f.env.actionLock.current, false); assert.equal(f.timers.size, 0)
+      await f.api[method](); assert.equal(f.writes.length, 0); assert.equal(f.env.actionLock.current, null); assert.equal(f.timers.size, 0)
       f.cleanup()
     }
   }
@@ -87,7 +92,7 @@ async function main() {
   await check.advance(1200); await checking; await check.api.doCheckup()
   assert.deepEqual(check.events, ['eren:vet-checkup']); assert.equal(check.env.checkDone, true); assert.equal(check.env.checking, false); check.cleanup()
   for (const [method, options] of [['giveMedicine', { healthy: true }], ['giveMedicine', { checkDone: false }], ['giveLolipop', { healthy: false }], ['giveLolipop', { healthy: true, checkDone: false }]]) {
-    const f = fixture(options); await f.api[method](); assert.equal(f.writes.length, 0); assert.equal(f.env.actionLock.current, false); f.cleanup()
+    const f = fixture(options); await f.api[method](); assert.equal(f.writes.length, 0); assert.equal(f.env.actionLock.current, null); f.cleanup()
   }
 
   const medicine = fixture(), dose = medicine.api.giveMedicine()
@@ -98,13 +103,13 @@ async function main() {
   assert.equal(medicine.env.giving, true); assert.deepEqual(medicine.reactions.flat().map(b => b.name), ['grimace'])
   medicine.pending.shift().resolve(failure); await dose
   assert.equal(medicine.env.giving, false); assert.equal(medicine.env.medGiven, false); assert.equal(medicine.env.toast.ok, false)
-  assert.equal(medicine.env.actionLock.current, false)
+  assert.equal(medicine.env.actionLock.current, null)
   medicine.env.healthy = false
   const retry = medicine.api.giveMedicine(); medicine.pending.shift().resolve(success); await medicine.advance(600)
   assert.equal(medicine.env.medGiven, true); assert.equal(medicine.env.giving, true)
   assert.deepEqual(medicine.reactions.at(-1).map(b => b.name), ['recover', 'finish'])
   medicine.env.healthy = true; await medicine.api.giveLolipop(); assert.equal(medicine.writes.length, 2)
-  await medicine.advance(1500); await retry; assert.equal(medicine.env.giving, false); assert.equal(medicine.env.actionLock.current, false)
+  await medicine.advance(1500); await retry; assert.equal(medicine.env.giving, false); assert.equal(medicine.env.actionLock.current, null)
   await medicine.api.giveMedicine(); assert.equal(medicine.writes.length, 2); medicine.cleanup()
 
   for (const method of ['giveMedicine', 'giveLolipop']) {
@@ -112,7 +117,7 @@ async function main() {
     f.pending.shift().reject(Error('Offline'))
     await new Promise(resolve => setImmediate(resolve))
     await f.advance(method === 'giveMedicine' ? 600 : 150); await attempt
-    assert.equal(f.env.actionLock.current, false); assert.equal(f.env.giving, false); assert.equal(f.env.lolBusy, false)
+    assert.equal(f.env.actionLock.current, null); assert.equal(f.env.giving, false); assert.equal(f.env.lolBusy, false)
     assert.equal(f.env.toast.ok, false); assert.equal(f.store.size, 0)
     assert.ok(!f.reactions.flat().some(b => ['recover', 'lick', 'lick2', 'finish'].includes(b.name)), 'Failed saves never celebrate')
     f.cleanup()
@@ -140,7 +145,7 @@ async function main() {
     f.cleanup()
     if (method !== 'doCheckup') f.pending.shift().resolve(success)
     await attempt
-    assert.equal(f.timers.size, 0); assert.equal(f.env.actionLock.current, false); assert.equal(f.events.length, 0)
+    assert.equal(f.timers.size, 0); assert.equal(f.env.actionLock.current, null); assert.equal(f.events.length, 0)
     assert.equal(f.windowListeners.size + f.documentListeners.size, 0)
     if (method === 'giveLolipop') {
       assert.equal(f.store.size, 1, 'A treat saved after leaving still starts the per-device cooldown')
@@ -167,6 +172,18 @@ async function main() {
   helpers.store.set(KEY, String(EPOCH + 1)); assert.equal(helpers.api.lolipopReadyAt(), 0)
   helpers.store.set(KEY, 'invalid'); assert.equal(helpers.api.lolipopReadyAt(), 0)
   assert.equal(helpers.api.formatWait(45000), '45s'); assert.equal(helpers.api.formatWait(60001), '2m'); helpers.cleanup()
+  for(const changed of [true,false]){
+    const recovery=fixture({healthy:true,checkDone:false});recovery.env.medicineSavePending=true;recovery.env.isSleeping=true
+    const attempt=recovery.api.giveMedicine(true);assert.equal(recovery.pending[0].recover,true);assert.equal(recovery.reactions.length,0);assert.equal(recovery.timers.size,0)
+    recovery.pending.shift().resolve({...success,changed});await attempt;assert.equal(recovery.reactions.length,0);assert.equal(recovery.env.medGiven,false);assert.equal(recovery.env.toast.ok,true);recovery.cleanup()
+  }
+  const noop=fixture(),noDose=noop.api.giveMedicine();noop.pending.shift().resolve({...success,changed:false});await noop.advance(600);await noDose;assert.equal(noop.env.medGiven,false);assert.deepEqual(noop.reactions.flat().map(b=>b.name),['grimace']);noop.cleanup()
+  for(const method of ['doCheckup','giveMedicine','giveLolipop'])for(const mode of ['account','aba','newer']){
+    const stale=fixture({healthy:method==='giveLolipop',checkDone:method!=='doCheckup'}),attempt=stale.api[method]();stale.env.saveScope.current={};if(mode==='aba')stale.env.saveEpoch.current++
+    const token=Symbol('next');if(mode==='newer')stale.env.actionLock.current=token
+    if(method!=='doCheckup')stale.pending.shift().resolve(success);await stale.advance(1200);await attempt
+    assert.equal(stale.env.toast,null);assert.equal(stale.env.medGiven,false);assert.equal(stale.events.length,0);if(mode==='newer')assert.equal(stale.env.actionLock.current,token);stale.cleanup()
+  }
   console.log('Vet action checks passed: loading/sleep/eligibility guards, checkup wish once, immediate single saves, failure/exception retry, confirmed-only full reactions, correct quest attribution, cooldown sync/private storage, saved-after-leaving cooldown and timer/listener cleanup.')
 }
 const watchdog = setTimeout(() => { console.error('Vet checks stalled on an unresolved fake timer'); process.exitCode = 1 }, 5000)

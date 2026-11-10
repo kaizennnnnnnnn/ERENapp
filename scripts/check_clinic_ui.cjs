@@ -15,21 +15,23 @@ mocks['@/components/meadow'] = {
 }
 const Controls = load('src/components/vet/ClinicControls.tsx').default
 const props = { reasons: ['Needs a bath', 'Needs more sleep', 'Lighter meals'], weight: 8.2, onGive() {}, onClose() {} }
-for (const phase of ['loading', 'sick', 'giving', 'treated', 'healthy']) {
+for (const phase of ['loading', 'sick', 'giving', 'treated', 'healthy', 'recover', 'recovering']) {
   const html = renderToStaticMarkup(React.createElement(Controls, { ...props, phase }))
   const finished = phase === 'treated' || phase === 'healthy'
   assert.equal((html.match(/<button/g) ?? []).length, finished ? 1 : 2)
-  assert.equal(/ disabled=""/.test(html), phase === 'loading' || phase === 'giving')
+  assert.equal(/ disabled=""/.test(html), ['loading','giving','recovering'].includes(phase))
   assert.match(html, /Back home/)
   assert.doesNotMatch(html, /Press Start|font-pixel|gradient|text-shadow/)
-  if (phase === 'giving') assert.match(html, /aria-busy="true"/)
-  if (!finished) assert.match(html, /Give Mochi medicine/)
+  if (['giving','recovering'].includes(phase)) assert.match(html, /aria-busy="true"/)
+  if (!finished) assert.match(html, phase.startsWith('recover') ? /Retry treatment save/ : /Give Mochi medicine/)
   if (phase === 'sick' || phase === 'healthy') assert.match(html, /Mochi is feeling/)
   if (phase !== 'loading') { assert.match(html, /Care needs/); assert.match(html, /Weight: 8.2 kg/) }
   else assert.doesNotMatch(html, /Care needs|Weight:/)
   if (finished) assert.doesNotMatch(html, /Give Mochi medicine/)
 }
 const cured = renderToStaticMarkup(React.createElement(Controls, { ...props, phase: 'treated', reasons: [], weight: 4 }))
+assert.match(renderToStaticMarkup(React.createElement(Controls,{...props,phase:'recover',disabled:true})),/ disabled=""/)
+assert.doesNotMatch(renderToStaticMarkup(React.createElement(Controls,{...props,phase:'healthy',disabled:true})),/ disabled=""/,'Back home always remains usable')
 assert.match(cured, /Mochi is feeling better/); assert.doesNotMatch(cured, /needs below|Weight:/)
 
 const file = 'src/components/care/HospitalScene.tsx', text = fs.readFileSync(file, 'utf8')
@@ -47,10 +49,11 @@ function visit(node) {
 visit(source); assert.equal(functions.size, 2); assert.ok(setupEffect)
 const js = ts.transpileModule([...functions.values()].join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
 const setupJs = ts.transpileModule(`const setup = ${setupEffect}`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
-const phase = new Function('giving', 'medGiven', 'stats', `return ${phaseExpression}`)
+const phase = (giving,medGiven,stats,medicineSavePending=false,recovering=false)=>new Function('busy','medGiven','stats','medicineSavePending','recovering',`return ${phaseExpression}`)(giving,medGiven,stats,medicineSavePending,recovering)
 assert.equal(phase(true, false, { is_sick: false }), 'giving', 'Optimistic cure must not claim treatment is saved')
 assert.equal(phase(false, false, null), 'loading'); assert.equal(phase(false, false, { is_sick: false }), 'healthy')
 assert.equal(phase(false, true, { is_sick: false }), 'treated'); assert.equal(phase(false, false, { is_sick: true }), 'sick')
+assert.equal(phase(false,false,{is_sick:false},true),'recover');assert.equal(phase(true,false,{is_sick:false},true),'recovering')
 const reasons = new Function('stats', `const reasons = []; ${reasonChecks.join('\n')}; return reasons`)
 assert.deepEqual(reasons(null), [])
 assert.deepEqual(reasons({ cleanliness: 19, sleep_quality: 14, weight: 7.6 }), props.reasons)
@@ -69,12 +72,14 @@ function fixture() {
   const timers = new Map(), pending = [], writes = []
   let timerId = 0
   const env = {
-    user: { id: 'tester' }, stats: { is_sick: true }, medGiven: false,
-    mounted: { current: true }, saveLock: { current: false }, toastTimer: { current: null },
+    user: { id: 'tester' }, profile:{household_id:'home'},stats: { household_id:'home',is_sick: true }, medGiven: false,
+    saveEpoch:{current:0},saveScope:{current:{}},medicineSaveBusy:false,medicineSavePending:false,
+    mounted: { current: true }, saveLock: { current: null }, toastTimer: { current: null },
     setTimeout(fn, ms) { timers.set(++timerId, { fn, ms }); return timerId }, clearTimeout(id) { timers.delete(id) },
-    applyAction(user, action) { writes.push([user, action]); return new Promise((resolve, reject) => pending.push({ resolve, reject })) },
+    finishMedicineSession(recover) { writes.push(['tester','medicine']); return new Promise((resolve, reject) => pending.push({ resolve, reject,recover })) },
   }
-  for (const name of ['Giving', 'MedGiven', 'Toast', 'ToastGood']) {
+  env.currentSaveScope=env.saveScope.current
+  for (const name of ['Giving', 'Recovering', 'MedGiven', 'Toast', 'ToastGood']) {
     const key = name[0].toLowerCase() + name.slice(1)
     env['set' + name] = value => { assert.equal(env.mounted.current, true, 'No UI writes after leaving'); env[key] = value }
   }
@@ -95,18 +100,29 @@ async function main() {
   assert.deepEqual(f.writes, [['tester', 'medicine']], 'Write starts immediately, with no artificial wait')
   await f.api.giveMedicine(); assert.equal(f.writes.length, 1); assert.equal(f.env.giving, true); assert.equal(f.env.medGiven, false)
   f.pending.shift().resolve({ success: false, message: 'Try again' }); await first
-  assert.equal(f.env.medGiven, false); assert.equal(f.env.giving, false); assert.equal(f.env.saveLock.current, false); assert.equal(f.env.toastGood, false)
+  assert.equal(f.env.medGiven, false); assert.equal(f.env.giving, false); assert.equal(f.env.saveLock.current, null); assert.equal(f.env.toastGood, false)
   const retry = f.api.giveMedicine(); assert.equal(f.env.toast, null); assert.equal(f.timers.size, 0)
-  f.pending.shift().resolve({ success: true, message: 'Saved' }); await retry
+  f.pending.shift().resolve({ success: true, changed:true,message: 'Saved' }); await retry
   assert.equal(f.env.medGiven, true); assert.equal(f.env.toastGood, true); assert.equal(f.env.giving, false)
   await f.api.giveMedicine(); assert.equal(f.writes.length, 2, 'Do not give another dose after confirmation')
   assert.equal(f.timers.size, 1, 'A newer message replaces the old dismissal timer'); f.cleanup(); assert.equal(f.timers.size, 0)
-  const rejected = fixture(); rejected.env.applyAction = async () => { throw Error('Offline') }
-  await rejected.api.giveMedicine(); assert.equal(rejected.env.medGiven, false); assert.equal(rejected.env.giving, false); assert.equal(rejected.env.saveLock.current, false)
+  const rejected = fixture(); rejected.env.finishMedicineSession = async () => { throw Error('Offline') }
+  await rejected.api.giveMedicine(); assert.equal(rejected.env.medGiven, false); assert.equal(rejected.env.giving, false); assert.equal(rejected.env.saveLock.current, null)
   assert.equal(rejected.env.toastGood, false); assert.match(rejected.env.toast, /try again/)
   const leaving = fixture(), save = leaving.api.giveMedicine(); leaving.cleanup()
   leaving.pending.shift().resolve({ success: true, message: 'Saved after leaving' }); await save
-  assert.equal(leaving.timers.size, 0); assert.equal(leaving.env.saveLock.current, false)
+  assert.equal(leaving.timers.size, 0); assert.equal(leaving.env.saveLock.current, null)
+  for(const changed of [true,false]){
+    const recovery=fixture();recovery.env.stats.is_sick=false;recovery.env.medicineSavePending=true;const attempt=recovery.api.giveMedicine(true)
+    assert.equal(recovery.pending[0].recover,true);recovery.pending.shift().resolve({success:true,changed,message:'Recovered'});await attempt
+    assert.equal(recovery.env.medGiven,false);assert.equal(recovery.env.toastGood,true);recovery.cleanup()
+  }
+  for(const mode of ['account','aba','newer']){
+    const stale=fixture(),attempt=stale.api.giveMedicine();stale.env.saveScope.current={};if(mode==='aba')stale.env.saveEpoch.current++
+    const token=Symbol('next');if(mode==='newer')stale.env.saveLock.current=token
+    stale.pending.shift().resolve({success:true,changed:true,message:'Late'});await attempt
+    assert.equal(stale.env.medGiven,false);assert.equal(stale.env.toast,null);if(mode==='newer')assert.equal(stale.env.saveLock.current,token);stale.cleanup()
+  }
   console.log('Clinic checks passed: Meadow states, renamed cat, visible care needs/weight, loading/healthy guards, immediate single write, slow-save pending, failed/rejected retry, confirmed-only recovery and unmount cleanup.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })
