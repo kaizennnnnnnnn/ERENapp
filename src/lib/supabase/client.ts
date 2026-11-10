@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { createAuthFetch } from '@/lib/boundedRequest'
 
 // Single shared browser client. Every hook/component calls createClient(),
 // and a fresh instance per call spins up its own GoTrueClient — they then
@@ -12,7 +13,8 @@ export function createClient() {
   if (browserClient) return browserClient
   browserClient = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim()
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
+    { global: { fetch: createAuthFetch((input, init) => fetch(input, init), process.env.NEXT_PUBLIC_SUPABASE_URL!.trim()) } }
   )
   return browserClient
 }

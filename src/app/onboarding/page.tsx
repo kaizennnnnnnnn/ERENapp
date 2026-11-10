@@ -28,6 +28,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
+import { boundedRequest } from '@/lib/boundedRequest'
+import { PROFILE_UPDATED_EVENT } from '@/lib/authState'
 import { usePageReady } from '@/hooks/usePageReady'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
@@ -87,6 +89,10 @@ function dropCodeParam() {
   const url = new URL(window.location.href)
   url.searchParams.delete('code')
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+function announceHome(userId: string, householdId: string, name: string) {
+  window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: userId, patch: { household_id: householdId, name } } }))
 }
 
 export default function OnboardingPage() {
@@ -153,11 +159,14 @@ export default function OnboardingPage() {
         return
       }
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      const { data: { user }, error: authError } = await boundedRequest(() => supabase.auth.getUser(), { timeoutMs: 10000 })
+        .catch(() => ({ data: { user: null }, error: { name: 'AuthRetryableFetchError' } }))
       if (cancelled) return
       // Offline is not "signed out": showing the Welcome to someone who is
       // signed in would send them into a sign-up that can only fail.
-      if (!user && authError?.name === 'AuthRetryableFetchError') {
+      const noSession = authError?.name === 'AuthSessionMissingError'
+        || (authError && 'status' in authError && authError.status === 401)
+      if (!user && authError && !noSession) {
         setLoadError(true)
         return
       }
@@ -180,8 +189,9 @@ export default function OnboardingPage() {
         return
       }
 
-      const { data: prof, error } = await withRetry(() => supabase
-        .from('profiles').select('household_id, name').eq('id', user.id).maybeSingle())
+      const { data: prof, error } = await boundedRequest(signal => supabase
+        .from('profiles').select('household_id, name').eq('id', user.id).abortSignal(signal).maybeSingle())
+        .catch(() => ({ data: null, error: { message: 'Profile timed out' } }))
       if (cancelled) return
       if (error) {
         // Transient outage: never assume "no household" on a failed read.
@@ -217,6 +227,7 @@ export default function OnboardingPage() {
       }
 
       const hh = prof.household_id as string
+      announceHome(acct.userId, hh, profileName)
       const pending = readPending(acct.userId)
       if (!pending) {
         if (codeParam) {
@@ -332,7 +343,10 @@ export default function OnboardingPage() {
   const patchDraft = (p: Partial<Draft>) => setDraft(d => ({ ...d, ...p }))
 
   function launch() {
-    if (!demo) { clearPending(); clearDraft() }
+    if (!demo) {
+      if (account && home) announceHome(account.userId, home.id, account.name)
+      clearPending(); clearDraft()
+    }
     requestCloudNav('/home', 'rainbow')
   }
 

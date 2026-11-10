@@ -11,6 +11,8 @@
 // 0-rows error (PGRST116) as a signal — every attempt would burn the
 // full backoff before reporting it.
 
+import { boundedRequest } from './boundedRequest'
+
 interface RetryableError {
   code?: string
   message?: string
@@ -69,15 +71,11 @@ export async function writeWithRetry<T>(
     }
     const remaining = deadline - Date.now()
     if (remaining <= 0) break
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), Math.min(WRITE_TIMEOUT_MS, remaining))
     try {
-      last = await run(ctrl.signal)
+      last = await boundedRequest(run, { timeoutMs: Math.min(WRITE_TIMEOUT_MS, remaining) })
     } catch (e) {
       // abort (timeout) or fetch-level failure — retry
       last = { data: null as T, error: { message: e instanceof Error ? e.message : String(e) } }
-    } finally {
-      clearTimeout(timer)
     }
     if (!last.error || !shouldRetry(last.error)) break
   }

@@ -23,7 +23,9 @@ download of all 75 precached assets (about 30.38 MiB). Offline and cache-busted
 URLs retain their existing behavior and artwork quality is unchanged.
 
 Checks:
-- `check_save_budget.cjs`: five deterministic retry/budget cases.
+- `check_save_budget.cjs`: six deterministic retry/budget cases, including an
+  SDK promise blocked on authentication that ignores cancellation. The startup
+  recovery pass now races the deadline as well as aborting the HTTP request.
 - `check_image_cache.cjs`: ten actual-worker VM checks, including 200 warm
   consumers sharing one refresh, four-way precache, failures and offline hits.
 - Existing receipt-backed client regression suites and TypeScript.

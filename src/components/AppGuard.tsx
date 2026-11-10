@@ -32,21 +32,26 @@
  */
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { registerSW } from '@/lib/reminders'
 import { readPending } from '@/components/onboarding/flow'
+import ConnectionRecovery from './ConnectionRecovery'
+import { usePageReady } from '@/hooks/usePageReady'
 
 export default function AppGuard() {
   const router = useRouter()
-  const { user, loading } = useAuth()
+  const path = usePathname()
+  const { user, loading, error, retry, retrying } = useAuth()
+  usePageReady(!!error)
 
   useEffect(() => { registerSW() }, [])
 
   useEffect(() => {
-    if (loading) return
+    if (loading || error) return
     if (!user || readPending(user.id)) router.replace('/onboarding')
-  }, [user, loading, router])
+  }, [user, loading, error, router])
 
+  if (error && path !== '/home') return <ConnectionRecovery onRetry={retry} busy={retrying} />
   return null
 }

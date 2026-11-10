@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
@@ -15,7 +14,9 @@ import { useTasks } from '@/contexts/TaskContext'
 import { Sparkles } from 'lucide-react'
 import { MeadowIcon } from '@/components/PixelIcons'
 import { M, NAV_HEIGHT, MOOD_STYLE } from '@/components/meadow/tokens'
-import { PrimaryButton, RoundButton } from '@/components/meadow'
+import { RoundButton } from '@/components/meadow'
+import ConnectionRecovery from '@/components/ConnectionRecovery'
+import { boundedRequest } from '@/lib/boundedRequest'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -84,12 +85,6 @@ const HOME_EREN_FALLBACK = { src: '/erenGood_notail.png', tailSrc: '/erenGood_ta
 // bottom nav reads it to know when to step aside.
 type HomeGate = 'loading' | 'offline' | 'mood' | 'verdict' | 'room'
 
-/** How long a signed-in user can sit without their profile before home stops
- *  showing the loader and says it can't connect. useAuth gives up WAITING
- *  after 6s but its fetch (withRetry) carries on and usually lands a moment
- *  later, so anything shorter flashes an error at people on a slow line. */
-const PROFILE_STUCK_MS = 15000
-
 // Has the living room been on screen yet in this app session? Every tap of the
 // Home tab remounts this page, and each remount shows the loader for a network
 // round trip (useAuth re-checks the session). Hiding the nav for that would
@@ -101,8 +96,8 @@ export default function HomePage() {
   const rewardIndicators = useRewardIndicators()
   const router   = useRouter()
   const supabase = createClient()
-  const { user, profile, loading: authLoading } = useAuth()
-  const { stats, loading } = useErenStats(profile?.household_id ?? null)
+  const { user, profile, loading: authLoading, error: authError, retry: retryAuth, retrying: authRetrying } = useAuth()
+  const { stats, loading, error: statsError, refetch: retryStats } = useErenStats(profile?.household_id ?? null)
   const { setIsSick, openScene, setHideStats, activeScene } = useCare()
   const { xp } = useTasks()
   useTimeTracking(user?.id ?? null)
@@ -317,7 +312,7 @@ export default function HomePage() {
   const splashCanHide = pageReady
     || (!authLoading && !profile?.household_id)
     || (!authLoading && moodChecked && !todayMood)
-  usePageReady(splashCanHide)
+  usePageReady(splashCanHide || !!authError || (!stats && !!statsError))
 
   // ── Flavor bubble — ambient inner-monologue lines that pop above-left of
   // Eren. Suppressed whenever the wish bubble is visible (pending or in its
@@ -429,18 +424,6 @@ export default function HomePage() {
     if (!authLoading && !profile?.household_id) setMoodChecked(true)
   }, [authLoading, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Signed in, auth settled, and still no profile: either it is on its way
-  // (useAuth stopped waiting at 6s, its fetch did not) or Supabase is down.
-  // Only the second deserves a screen, so the loader holds until the wait is
-  // long enough to mean it.
-  const profileMissing = !authLoading && !!user && !profile
-  const [profileStuck, setProfileStuck] = useState(false)
-  useEffect(() => {
-    if (!profileMissing) { setProfileStuck(false); return }
-    const t = setTimeout(() => setProfileStuck(true), PROFILE_STUCK_MS)
-    return () => clearTimeout(t)
-  }, [profileMissing])
-
   useEffect(() => {
     if (stats) setIsSick(stats.is_sick ?? false)
   }, [stats?.is_sick]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -479,29 +462,27 @@ export default function HomePage() {
   // Load today's mood
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
-    let timedOut = false
-    const timeout = setTimeout(() => { timedOut = true; setMoodChecked(true) }, 6000)
+    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
         const todayStr = moodDateKey()
-        const { data, error } = await withRetry(() => supabase
-          .from('daily_moods').select('mood').eq('user_id', user!.id).eq('date', todayStr).maybeSingle())
+        const { data, error } = await boundedRequest(signal => supabase
+          .from('daily_moods').select('mood').eq('user_id', user!.id).eq('date', todayStr).abortSignal(signal).maybeSingle(),
+          { timeoutMs: 6000, signal: controller.signal })
+        if (cancelled) return
         if (data) setTodayMood(data.mood as UserMood)
         // A transient 503 resolves as { data: null, error } without
         // throwing — error means "couldn't check", NOT "no mood yet".
-        // Suppress the gate: re-asking would upsert over today's row and
-        // can re-fire the partner low-mood push, which is worse than one
-        // missed prompt. But if the 6s fallback already fired, the MoodGate
-        // is on screen — a late error must not yank it away mid-interaction
-        // (that would hide the mood question for the whole session).
-        else if (error && !timedOut) setMoodReadFailed(true)
-      } catch { /* ignore */ } finally {
-        clearTimeout(timeout)
-        setMoodChecked(true)
+        // Suppress the gate on failure: re-asking could overwrite a mood
+        // already saved today and re-fire the partner's low-mood push.
+        else if (error) setMoodReadFailed(true)
+      } catch { if (!cancelled) setMoodReadFailed(true) } finally {
+        if (!cancelled) setMoodChecked(true)
       }
     }
     load()
-    return () => clearTimeout(timeout)
+    return () => { cancelled = true; controller.abort() }
   }, [profile?.household_id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function showToast(msg: string) {
@@ -516,12 +497,8 @@ export default function HomePage() {
   //                 is first being painted, homeErenPending)
   //                 — and "signed in but never moved in", which the effect
   //                 above is redirecting to /onboarding
-  //   offline       no profile for PROFILE_STUCK_MS: the Supabase-outage
-  //                 state in useAuth. It used to be a "No household found"
-  //                 screen shown the moment auth settled without a profile,
-  //                 which a slow line hit on almost every cold open — and a
-  //                 signed-out user saw it too, for the beat before the
-  //                 redirect to onboarding. Both now keep the loader.
+  //   offline       a bounded auth/profile/stats request failed. A slow server
+  //                 is not proof that the device lost its internet connection.
   //   mood          today's mood question
   //   verdict       yesterday's result — a hard gate rather than an overlay,
   //                 so it cannot mount underneath the catchup carousel or an
@@ -529,8 +506,9 @@ export default function HomePage() {
   //                 tree and simply don't exist while this is up; they get
   //                 their turn on the render after it closes.
   const gate: HomeGate =
-    authLoading || !moodChecked ? 'loading'
-    : !profile?.household_id ? (profileStuck ? 'offline' : 'loading')
+    authError || (!stats && statsError) ? 'offline'
+    : authLoading || !moodChecked ? 'loading'
+    : !profile?.household_id ? 'loading'
     : !todayMood && !moodReadFailed ? 'mood'
     : loading || !stats || !roomReady ? 'loading'
     : verdict.show && verdict.row ? 'verdict'
@@ -546,22 +524,7 @@ export default function HomePage() {
   const LoadingScreen = <PageLoader label={cat.known ? cat.t('LOADING {NAME}') : 'LOADING'} />
 
   if (gate === 'offline') {
-    return (
-      <div className="meadow-root fixed inset-0 flex flex-col items-center justify-center" style={{
-        padding: '0 24px', background: M.soft, zIndex: 40,
-      }}>
-        <img src="/erenGood.png" alt="" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain' }} />
-        <p style={{ margin: '18px 0 0', fontSize: 22, lineHeight: 1.2, fontWeight: 800, color: M.text, textAlign: 'center' }}>
-          Can&apos;t reach home
-        </p>
-        <p style={{ margin: '8px 0 0', maxWidth: 300, fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2, textAlign: 'center' }}>
-          It looks like you&apos;re offline, or the connection is very slow.
-        </p>
-        <div style={{ width: '100%', maxWidth: 300, marginTop: 24 }}>
-          <PrimaryButton onClick={() => window.location.reload()}>Try again</PrimaryButton>
-        </div>
-      </div>
-    )
+    return <ConnectionRecovery onRetry={() => authError ? retryAuth() : retryStats()} busy={authRetrying} />
   }
 
   if (gate === 'mood') {

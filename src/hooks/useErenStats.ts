@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
+import { writeWithRetry } from '@/lib/supabaseRetry'
 import { useAuth, PROFILE_UPDATED_EVENT } from './useAuth'
 import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
@@ -18,6 +18,7 @@ import { onForeground } from '@/lib/onForeground'
 import { pendingWashSession, saveWashSession, mergeWashStats, washSessionError, type WashSessionSave } from '@/lib/washSessionSaves'
 import { pendingSleepSession, saveSleepSession, mergeSleepStats, sleepSessionError, type SleepSessionSave, type SleepAction } from '@/lib/sleepSessionSaves'
 import { mergeInventoryStats, type InventoryItemSave } from '@/lib/inventoryItemSaves'
+import { boundedRequest } from '@/lib/boundedRequest'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -262,6 +263,7 @@ function computeDecay(stats: ErenStats | null): DecayResult | null {
 let _decaySchedulerStarted = false
 let _lastDecayPing = 0
 function pingDecay() {
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
   const now = Date.now()
   if (now - _lastDecayPing < 10 * 60 * 1000) return
   _lastDecayPing = now
@@ -309,6 +311,14 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
   // Latest saved stats for actions invoked before React has rendered again.
   const statsRef = useRef<ErenStats | null>(null)
   useEffect(() => { statsRef.current = stats }, [stats])
+  const statsScope = useRef({ householdId, userId })
+  if (statsScope.current.householdId !== householdId || statsScope.current.userId !== userId) statsScope.current = { householdId, userId }
+  const currentStatsScope = statsScope.current
+  const statsRead = useRef<{ scope: typeof currentStatsScope; controller: AbortController; promise: Promise<void> } | null>(null)
+  useEffect(() => {
+    statsRef.current = null; hasStatsRef.current = false; setStats(null); setError(null)
+    return () => { statsRead.current?.controller.abort(); statsRead.current = null }
+  }, [currentStatsScope])
   const foodQueue = useRef<Promise<unknown>>(Promise.resolve())
   const foodActionLock = useRef(false)
   const [foodActionBusy, setFoodActionBusy] = useState(false)
@@ -395,110 +405,136 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     }
   }, [householdId, userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchStats = useCallback(async () => {
-    if (!householdId) return
-    // Only the initial fetch shows the loader. The 2-min decay tick and the
-    // visibilitychange refetch used to flip loading too, swapping the whole
-    // home room for the LOADING EREN screen every 2 minutes.
-    if (!hasStatsRef.current) setLoading(true)
-    // withRetry: this read is also the ROLLBACK path for failed care writes —
-    // during a transient 503 an unretried refetch left the optimistic state
-    // stranded (UI asleep, DB awake). PGRST116 short-circuits inside.
-    const { data, error } = await withRetry(() => supabase
-      .from('eren_stats').select('*').eq('household_id', householdId).single())
-    if (error) { setError(error.message ?? 'fetch failed'); setLoading(false); return }
-
-    const raw = data as ErenStats
-
-    // Initialize last_decay_at on first load so subsequent ticks have a reference.
-    if (!raw.last_decay_at) {
-      const now = new Date().toISOString()
-      await supabase.from('eren_stats').update({ last_decay_at: now }).eq('household_id', householdId)
-      setStats({ ...raw, last_decay_at: now })
-      setLoading(false)
-      return
+  const fetchStats = useCallback((): Promise<void> => {
+    if (!householdId || statsScope.current !== currentStatsScope) return Promise.resolve()
+    if (statsRead.current?.scope === currentStatsScope) return statsRead.current.promise
+    const job = { scope: currentStatsScope, controller: new AbortController(), promise: Promise.resolve() }
+    statsRead.current = job
+    const current = () => statsRead.current === job && statsScope.current === currentStatsScope
+    const accept = (row: ErenStats) => {
+      if (!current() || (statsRef.current?.household_id === householdId && Date.parse(statsRef.current.updated_at) > Date.parse(row.updated_at))) return
+      statsRef.current = row; hasStatsRef.current = true
+      setStats(prev => prev?.household_id === householdId && Date.parse(prev.updated_at) > Date.parse(row.updated_at) ? prev : row)
     }
+    job.promise = (async () => {
+      try {
+        // Only the initial fetch shows the loader. The 2-min decay tick and the
+        // visibilitychange refetch used to flip loading too, swapping the whole
+        // home room for the LOADING EREN screen every 2 minutes.
+        if (!hasStatsRef.current) setLoading(true)
+        const { data, error } = await boundedRequest(signal => supabase
+          .from('eren_stats').select('*').eq('household_id', householdId).abortSignal(signal).single(), { signal: job.controller.signal })
+        if (!current()) return
+        if (error || !data || data.household_id !== householdId) throw new Error(error?.message ?? 'Home data is unavailable')
+        setError(null)
 
-    // A DECAY FREEZE bought in the Trophy Shop pauses the CLOCK, not the
-    // maths: last_decay_at is pushed forward so the skipped hours are not
-    // banked up and dumped on him the moment it lapses.
-    //
-    // Only WRITES when enough time has built up to matter. This tick runs
-    // every two minutes and on every visibilitychange; writing each time
-    // would be ~90 pointless round-trips per three-hour freeze.
-    if (decayFrozen()) {
-      const pending = computeDecay(raw)
-      if (pending && pending.hours >= DECAY_MIN_SAVE_HOURS) {
-        const now = new Date().toISOString()
-        await supabase.from('eren_stats').update({ last_decay_at: now }).eq('household_id', householdId)
-        setStats({ ...raw, last_decay_at: now })
-      } else {
-        setStats(raw)
+        const raw = data as ErenStats
+        if (statsRef.current?.household_id === householdId && Date.parse(statsRef.current.updated_at) > Date.parse(raw.updated_at)) return
+
+        const saveClock = async () => {
+          const now = new Date().toISOString()
+          // Show the successfully read room before optional housekeeping writes.
+          accept(raw); setLoading(false)
+          const { data: saved } = await boundedRequest(signal => {
+            let q = supabase.from('eren_stats').update({ last_decay_at: now, updated_at: now })
+              .eq('household_id', householdId).eq('updated_at', raw.updated_at)
+            q = raw.last_decay_at ? q.eq('last_decay_at', raw.last_decay_at) : q.is('last_decay_at', null)
+            return q.select('last_decay_at,updated_at').abortSignal(signal).maybeSingle()
+          }, { timeoutMs: 6000, signal: job.controller.signal }).catch(() => ({ data: null }))
+          if (current() && saved && statsRef.current?.household_id === householdId) accept({ ...statsRef.current, ...saved })
+        }
+
+        // Initialize last_decay_at on first load so subsequent ticks have a reference.
+        if (!raw.last_decay_at) {
+          await saveClock()
+          return
+        }
+
+        // A DECAY FREEZE bought in the Trophy Shop pauses the CLOCK, not the
+        // maths: last_decay_at is pushed forward so the skipped hours are not
+        // banked up and dumped on him the moment it lapses.
+        //
+        // Only WRITES when enough time has built up to matter. This tick runs
+        // every two minutes and on every visibilitychange; writing each time
+        // would be ~90 pointless round-trips per three-hour freeze.
+        if (decayFrozen()) {
+          const pending = computeDecay(raw)
+          if (pending && pending.hours >= DECAY_MIN_SAVE_HOURS) {
+            await saveClock()
+          } else {
+            accept(raw)
+          }
+          setLoading(false)
+          return
+        }
+
+        const decay = computeDecay(raw)
+        if (!decay || decay.hours < DECAY_MIN_SAVE_HOURS) {
+          accept(raw)
+          setLoading(false)
+          return
+        }
+
+        const decayedMood = computeErenMood({
+          happiness: decay.happiness, hunger: decay.hunger, energy: decay.energy,
+          sleep_quality: decay.sleep_quality, cleanliness: decay.cleanliness,
+        })
+        const decayedSick = raw.is_sick || shouldBecomeSick({
+          cleanliness: decay.cleanliness, sleep_quality: decay.sleep_quality, weight: raw.weight,
+        })
+
+        const decayed: ErenStats = {
+          ...raw,
+          happiness: Math.round(decay.happiness),
+          hunger: Math.round(decay.hunger),
+          energy: Math.round(decay.energy),
+          sleep_quality: Math.round(decay.sleep_quality),
+          cleanliness: Math.round(decay.cleanliness),
+          mood: decayedMood,
+          is_sick: decayedSick,
+          last_decay_at: new Date().toISOString(),
+        }
+        accept(decayed)
+        setLoading(false)
+
+        // Persist the decayed values + refreshed timestamp.
+        //
+        // This MUST be awaited (or at least subscribed to): a supabase-js builder
+        // is lazy — the fetch only fires inside then(). A bare statement here
+        // never sent a request, which left the DB stale-high while the app was
+        // open, so /api/notify-stats evaluated pre-decay values and the
+        // background threshold push never fired.
+        //
+        // The last_decay_at guard makes this a compare-and-set: if a care action
+        // (either partner) landed between our read and this write, the filter
+        // misses and we skip rather than clobber the action with pre-action values.
+        await writeWithRetry(signal => supabase.from('eren_stats').update({
+          happiness: decayed.happiness,
+          hunger: decayed.hunger,
+          energy: decayed.energy,
+          sleep_quality: decayed.sleep_quality,
+          cleanliness: decayed.cleanliness,
+          mood: decayed.mood,
+          is_sick: decayed.is_sick,
+          last_decay_at: decayed.last_decay_at,
+          updated_at: new Date().toISOString(),
+        }).eq('household_id', householdId)
+          .eq('last_decay_at', raw.last_decay_at)
+          .abortSignal(signal), 2, () => true, { budgetMs: 6000 })
+
+        // If the client just decayed across a threshold while the tab is in
+        // the background, ping the server so it can fire a push (cooldown-
+        // throttled). When the tab is visible we skip — user is looking at
+        // the bars dropping in real time, no push needed.
+        if (current()) maybeFireBackgroundPush(householdId)
+      } catch {
+        if (current()) setError('Home data could not be loaded. Please try again.')
+      } finally {
+        if (current()) { statsRead.current = null; setLoading(false) }
       }
-      setLoading(false)
-      return
-    }
-
-    const decay = computeDecay(raw)
-    if (!decay || decay.hours < DECAY_MIN_SAVE_HOURS) {
-      setStats(raw)
-      setLoading(false)
-      return
-    }
-
-    const decayedMood = computeErenMood({
-      happiness: decay.happiness, hunger: decay.hunger, energy: decay.energy,
-      sleep_quality: decay.sleep_quality, cleanliness: decay.cleanliness,
-    })
-    const decayedSick = raw.is_sick || shouldBecomeSick({
-      cleanliness: decay.cleanliness, sleep_quality: decay.sleep_quality, weight: raw.weight,
-    })
-
-    const decayed: ErenStats = {
-      ...raw,
-      happiness: Math.round(decay.happiness),
-      hunger: Math.round(decay.hunger),
-      energy: Math.round(decay.energy),
-      sleep_quality: Math.round(decay.sleep_quality),
-      cleanliness: Math.round(decay.cleanliness),
-      mood: decayedMood,
-      is_sick: decayedSick,
-      last_decay_at: new Date().toISOString(),
-    }
-    setStats(decayed)
-    setLoading(false)
-
-    // Persist the decayed values + refreshed timestamp.
-    //
-    // This MUST be awaited (or at least subscribed to): a supabase-js builder
-    // is lazy — the fetch only fires inside then(). A bare statement here
-    // never sent a request, which left the DB stale-high while the app was
-    // open, so /api/notify-stats evaluated pre-decay values and the
-    // background threshold push never fired.
-    //
-    // The last_decay_at guard makes this a compare-and-set: if a care action
-    // (either partner) landed between our read and this write, the filter
-    // misses and we skip rather than clobber the action with pre-action values.
-    await writeWithRetry(signal => supabase.from('eren_stats').update({
-      happiness: decayed.happiness,
-      hunger: decayed.hunger,
-      energy: decayed.energy,
-      sleep_quality: decayed.sleep_quality,
-      cleanliness: decayed.cleanliness,
-      mood: decayed.mood,
-      is_sick: decayed.is_sick,
-      last_decay_at: decayed.last_decay_at,
-      updated_at: new Date().toISOString(),
-    }).eq('household_id', householdId)
-      .eq('last_decay_at', raw.last_decay_at)
-      .abortSignal(signal))
-
-    // If the client just decayed across a threshold while the tab is in
-    // the background, ping the server so it can fire a push (cooldown-
-    // throttled). When the tab is visible we skip — user is looking at
-    // the bars dropping in real time, no push needed.
-    maybeFireBackgroundPush(householdId)
-  }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
+    })()
+    return job.promise
+  }, [householdId, currentStatsScope]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchStats() }, [fetchStats])
 
@@ -513,7 +549,7 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
   useEffect(() => {
     if (!householdId) return
     startDecayScheduler()
-    const tick = setInterval(() => { fetchStats() }, 2 * 60 * 1000) // re-decay every 2 min
+    const tick = setInterval(() => { if (document.visibilityState === 'visible') void fetchStats() }, 2 * 60 * 1000)
     const onVis = () => { if (document.visibilityState === 'visible') fetchStats() }
     document.addEventListener('visibilitychange', onVis)
     return () => {
