@@ -7,7 +7,6 @@ import { resolveRoomSkin } from '@/lib/skins'
 import { ROOM_ART_DAY, ROOM_ART_DARK } from '@/lib/roomArt'
 import { foodDrag } from './foodDragFlag'
 import AnimatedEren from '@/components/AnimatedEren'
-import { PageSkeleton } from '@/components/loading/LoadingSkeleton'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
 import CurtainGlitter from '@/components/CurtainGlitter'
@@ -102,6 +101,8 @@ export default function CareSceneHost() {
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left')
   const [animKey,  setAnimKey]  = useState(0)
   const [ready,    setReady]    = useState(false)
+  const [visibleScene, setVisibleScene] = useState<CareScene | null>(null)
+  const nextDirection = useRef<'left' | 'right'>('left')
   const [loadError, setLoadError] = useState(false)
   // Bumps when the offline-panel retry button is tapped, forcing the image
   // load effect to re-run without changing activeScene/isDark.
@@ -126,7 +127,15 @@ export default function CareSceneHost() {
   useLayoutEffect(() => {
     setReady(false)
     setLoadError(false)
+    if (!activeScene) {
+      setVisibleScene(null)
+      prevSceneRef.current = null
+    }
   }, [activeScene])
+
+  useLayoutEffect(() => {
+    if (sceneContainerRef.current) sceneContainerRef.current.inert = !ready || loadError
+  }, [ready, loadError, animKey])
 
   const reloadScene = useCallback(() => {
     setLoadError(false)
@@ -155,17 +164,18 @@ export default function CareSceneHost() {
       return img.decode()
     })]).then(() => {
       if (cancelled) return
-      if (isFirstEntry) {
+      if (prevSceneRef.current !== activeScene) {
         // Entry direction follows the swipe that opened the scene from home.
         // Opening at index 0 (feed) = the user swiped left → new content
         // enters from the right (slideDir 'left' → slideInRight).
         // Opening at the last index (the attic) = the user swiped right →
         // new content should enter from the left, following their finger.
         const idx = LOOP_SCENES.indexOf(activeScene as CareScene)
-        setSlideDir(idx === LOOP_SCENES.length - 1 ? 'right' : 'left')
+        setSlideDir(isFirstEntry ? (idx === LOOP_SCENES.length - 1 ? 'right' : 'left') : nextDirection.current)
         setAnimKey(k => k + 1)
       }
       prevSceneRef.current = activeScene
+      setVisibleScene(activeScene)
       setReady(true)
     }).catch(() => {
       if (cancelled) return
@@ -177,10 +187,6 @@ export default function CareSceneHost() {
 
     return () => { cancelled = true }
   }, [activeScene, isDark, retryNonce, roomSkin])
-
-  useEffect(() => {
-    if (!activeScene) prevSceneRef.current = null
-  }, [activeScene])
 
   // Warm every scene chunk shortly after mount so room opens stay instant and
   // rooms keep working if the connection drops mid-session (sw.js precaches
@@ -196,7 +202,8 @@ export default function CareSceneHost() {
   // Memoize the scene element so drag-driven host re-renders (setDragX at
   // touch-move rate) bail out of re-rendering the heavy scene subtree.
   // SceneComp and closeScene are both stable for the duration of a drag.
-  const SceneComp = activeScene ? sceneComponents[activeScene] : undefined
+  // Keep the outgoing room mounted until the incoming art and chunk are ready.
+  const SceneComp = visibleScene ? sceneComponents[visibleScene] : undefined
   const sceneEl = useMemo(
     () => (SceneComp ? <SceneComp onClose={closeScene} /> : null),
     [SceneComp, closeScene]
@@ -210,16 +217,16 @@ export default function CareSceneHost() {
     if (dir === 'left') {
       if (loopIdx === LOOP_SCENES.length - 1) { playSound('ui_swipe_room'); closeScene(); return }
       playSound('ui_swipe_room')
-      setSlideDir('left'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx + 1])
+      nextDirection.current = 'left'; openScene(LOOP_SCENES[loopIdx + 1])
     } else {
       if (loopIdx === 0) { playSound('ui_swipe_room'); closeScene(); return }
       playSound('ui_swipe_room')
-      setSlideDir('right'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx - 1])
+      nextDirection.current = 'right'; openScene(LOOP_SCENES[loopIdx - 1])
     }
   }
 
   function onTouchStart(e: React.TouchEvent) {
-    if (foodDrag.active) return
+    if (!ready || foodDrag.active) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     touchStartTime.current = Date.now()
@@ -228,7 +235,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchMove(e: React.TouchEvent) {
-    if (foodDrag.active) return
+    if (!ready || foodDrag.active) return
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
 
@@ -253,7 +260,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchEnd(e: React.TouchEvent) {
-    if (foodDrag.active) { setDragX(0); return }
+    if (!ready || foodDrag.active) { setDragX(0); return }
     const dx = touchStartX.current - e.changedTouches[0].clientX
     const dy = touchStartY.current - e.changedTouches[0].clientY
     const elapsed = Date.now() - touchStartTime.current
@@ -320,7 +327,7 @@ export default function CareSceneHost() {
           rooms feels magical instead of like a hole punched in the screen.
           Sits under the scene (z-40, scene rendered after) so it's only ever
           visible mid-swipe. */}
-      <div className="fixed inset-0 z-40 overflow-hidden" style={{
+      {visibleScene && <div className="fixed inset-0 z-40 overflow-hidden" style={{
         background:
           'radial-gradient(90% 60% at 22% 16%, rgba(167,139,250,0.22), transparent 60%),' +
           'radial-gradient(80% 55% at 80% 84%, rgba(244,114,182,0.18), transparent 60%),' +
@@ -331,12 +338,7 @@ export default function CareSceneHost() {
         <div className="absolute inset-0" style={{ opacity: 0.7 }}>
           <CurtainGlitter count={24} seed={313131} />
         </div>
-      </div>
-
-      {/* Match the room's HUD, furniture and controls while its assets decode. */}
-      {!ready && !loadError && (
-        <PageSkeleton scene={activeScene} label={`Loading ${SCENE_LABELS[activeScene]}`} />
-      )}
+      </div>}
 
       {/* Offline panel — replaces the broken-room render the user hit before.
           Fires when the room's background image fails to decode (offline +
@@ -367,11 +369,13 @@ export default function CareSceneHost() {
       )}
 
       {/* Scene */}
-      {ready && (
+      {visibleScene && (
         <div
           ref={sceneContainerRef}
           key={animKey}
           className="fixed inset-0 z-40"
+          data-room-scene={visibleScene}
+          aria-busy={!ready}
           style={animStyle}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
@@ -407,6 +411,12 @@ export default function CareSceneHost() {
             <CurtainGlitter count={32} seed={424242} />
           </div>
         </div>
+      )}
+
+      {/* Block outgoing controls while loading; leave the real room visible. */}
+      {!ready && !loadError && (
+        <div role="status" aria-label={`Opening ${SCENE_LABELS[activeScene]}`}
+          className="fixed inset-0 z-50" aria-busy="true" />
       )}
 
       {/* Dot indicators — shown with the room label during swipes. */}

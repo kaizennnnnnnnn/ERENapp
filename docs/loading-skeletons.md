@@ -10,8 +10,17 @@ collections, photos, chat and forms. The kiosk keeps its dark Meadow surfaces.
 
 Client data fallbacks also use this kit: home/notes through PageLoader, account
 pages, closet, collection, memories, reminders, hallway, bucket list, trophies,
-rewards, Jelly tray, chat and scores. CareSceneHost uses the room layout while
-its existing chunk/image decode gate is pending. Its offline/retry panel stays.
+rewards, Jelly tray, chat and scores. Room swipes are the exception: CareSceneHost
+keeps the real outgoing room mounted until the next chunk and artwork decode,
+then runs its existing slide transition without a skeleton. First entry leaves
+home visible underneath. Outgoing controls are inert while waiting; failed art
+still shows the existing offline/retry panel. Startup/page skeletons are unchanged.
+
+The 2026-11-10 room follow-up passed six actual-host checks covering delayed
+images, both swipe directions, return home, errors/retry and stale cancellation.
+Isolated Playwright review at 390x844 and 360x740 observed zero skeleton frames
+across room changes, including an intentionally held image decode. No hosted
+player data was used or changed.
 
 ArtworkSkeleton watches the existing gacha, bakery and kiosk image URLs, so
 CSS backgrounds do not leave a blank stage after the route chunk has mounted.

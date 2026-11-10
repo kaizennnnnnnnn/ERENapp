@@ -135,6 +135,7 @@ assert.match(read('src/app/(app)/care/reminders/page.tsx'), /loading && reminder
 assert.match(read('src/components/talk/TalkSurface.tsx'), /loading && messages\.length === 0/)
 assert.match(read('src/components/Leaderboard.tsx'), /loading && loadFailed \?/)
 assert.match(read('src/components/care/CareSceneHost.tsx'), /!ready && !loadError &&/)
+assert.doesNotMatch(read('src/components/care/CareSceneHost.tsx'), /PageSkeleton/, 'Room swipes retain the real outgoing room, not a skeleton')
 assert.match(read('src/components/care/CareSceneHost.tsx'), /loadError &&/)
 // TypeScript also verifies every route import; these checks cover rendering and guards, not browser layout.
 console.log(`Loading checks passed: ${routes.length} skeleton boundaries, 23 layouts, 4 game boards, premium startup, 11 boot lifecycle/render cases, cached-data/error guards.`)
