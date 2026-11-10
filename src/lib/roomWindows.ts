@@ -62,9 +62,9 @@ export const ROOM_WINDOWS: Record<string, RoomWindow> = {
   chemistry: {
     label: 'LAB',
     art: { w: 941, h: 1672 },
-    box: { l: 0.37, t: 0.115, w: 0.285, h: 0.275 },
-    day: '/weather/chemistry.png?v=5',
-    night: '/weather/chemistry_night.png?v=5',
+    box: { l: 0.3390010626992561, t: 0.21471291866028708, w: 0.31562167906482463, h: 0.1848086124401914 },
+    day: '/weather/chemistry-botanical.png?v=6',
+    night: '/weather/chemistry-botanical_night.png?v=6',
   },
   talk: {
     label: 'ATTIC',

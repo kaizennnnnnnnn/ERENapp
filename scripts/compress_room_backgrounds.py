@@ -12,7 +12,7 @@ PUBLIC = os.path.join(os.path.dirname(__file__), "..", "public")
 FILES = [
     "kitchen.png", "KitchenDark.png", "playroom.png", "play.png",
     "bedroom.png", "bathroom.png", "BathroomDark.png",
-    "ChemistryDay.png", "ChemistryNight.png", "vetBACK.png", "wetDark.png",
+    "lab-botanical-day.png", "lab-botanical-night.png", "vetBACK.png", "wetDark.png",
     "schoolBACK.png", "livingRoom.png", "HomePage.png",
     "CakeShop.png", "CakeShopNight.png",
     "gacha_food.png", "gacha_animal.png",

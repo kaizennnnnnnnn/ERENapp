@@ -60,8 +60,8 @@ export const MACHINE_H = 126
 const BODY = { left: 8, top: 20, w: 76, h: 96 }
 
 // WHERE IT STANDS, and why these two numbers are not eyeballed. Measured off
-// ChemistryDay.png: the rug's top edge is at art y 1136 and the desk's feet all
-// end by art y 1070, which leaves one band of bare floorboard between them.
+// lab-botanical-day.png: the rug starts near art y 1118 and the cabinets end
+// near y 1006, leaving a band of bare floorboard between them.
 // `bottom: 34%` lands the machine's contact point at art y ~1104 — dead centre
 // of that band on every phone — and `left: 5%` puts its right edge ~24px clear
 // of Eren's silhouette at the narrowest viewport. Both are VIEWPORT percent,

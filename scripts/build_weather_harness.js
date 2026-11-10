@@ -63,11 +63,11 @@ for (const id of (process.env.WX_ROOMS ? kinds : [])) {
     const bw = win.art.w * scale, bh = win.art.h * scale
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(WeatherFx, { id, lit: true }))
-    const cut = 'file://' + path.join(ROOT, 'public/weather', room + '.png').split(path.sep).join('/')
+    const cut = 'file://' + path.join(ROOT, 'public', win.day.slice(1).split('?')[0]).split(path.sep).join('/')
     // The room's own painting, so the wash and the streaks are judged against
     // the sky the artist actually painted rather than against a black page.
     const ART = { home: 'livingRoom.png', feed: 'kitchen.png', play: 'playroom.png',
-      sleep: 'bedroom.png', wash: 'bathroom.png', chemistry: 'ChemistryDay.png',
+      sleep: 'bedroom.png', wash: 'bathroom.png', chemistry: 'lab-botanical-day.png',
       talk: 'AtticDay.png' }
     const artFile = path.join(ROOT, 'public', ART[room] || '')
     const art = fs.existsSync(artFile)

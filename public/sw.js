@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v36-image-refresh-2026-11-09'
+const SW_VERSION = 'v37-botanical-lab-2026-11-10'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -64,7 +64,8 @@ const PRECACHE_IMAGES = [
   '/playroom.png',   '/play.png',
   '/bedroom.png',
   '/bathroom.png',   '/BathroomDark.png',
-  '/ChemistryDay.png', '/ChemistryNight.png',
+  '/lab-botanical-day.png', '/lab-botanical-night.png',
+  '/weather/chemistry-botanical.png?v=6', '/weather/chemistry-botanical_night.png?v=6',
   '/CakeShop.png',   '/CakeShopNight.png',
   '/vet-cottage-day.png', '/vet-cottage-night.png',
   '/AtticDay.png',  '/AtticNight.png',  '/donut.png',

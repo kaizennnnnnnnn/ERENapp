@@ -26,6 +26,7 @@ import { LAB_EREN } from '@/components/chemistry/labEren'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey, TASK_DEFS } from '@/lib/tasks'
 import RoomWeather from '@/components/weather/RoomWeather'
+import { roomArt } from '@/lib/roomArt'
 
 interface Props { onClose: () => void }
 
@@ -54,7 +55,7 @@ export default function ChemistryScene(_props: Props) {
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{
-        backgroundImage: `url(${isDark ? '/ChemistryNight.png' : '/ChemistryDay.png'})`,
+        backgroundImage: `url(${roomArt('chemistry', isDark)})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         WebkitTouchCallout: 'none',
@@ -121,7 +122,7 @@ export default function ChemistryScene(_props: Props) {
 
       {weatherOpen && <WeatherMachinePanel onClose={() => setWeatherOpen(false)} />}
 
-      <LightSwitch targetBottom="22%" targetLeft="50%" persistKey="chemistry" />
+      <LightSwitch lampTop="17%" targetBottom="22%" targetLeft="50%" persistKey="chemistry" />
 
       {overlayOpen && (
         <PeriodicTableOverlay onClose={() => setOverlayOpen(false)} />
@@ -159,8 +160,7 @@ function RoomMissionChips() {
       className="meadow-root absolute z-20 pointer-events-none flex flex-col"
       style={{
         gap: 8,
-        // Bumped down 110 → 150 so the chips clear the chemistry wall
-        // diagram (proton / neutron / electron poster) in the room art.
+        // Keep quests below the expanded room HUD.
         top: 'calc(150px + env(safe-area-inset-top, 0px))',
         left: 12,
         // The vw clamp means a narrow phone crops the ROOM, never the chip.

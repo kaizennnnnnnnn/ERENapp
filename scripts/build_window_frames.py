@@ -349,8 +349,15 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
 
     os.makedirs(outdir, exist_ok=True)
     full = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    # Extend original art beyond the effect box so resampling its transparent
+    # edge cannot expose a one-pixel line of weather on the surrounding wall.
+    pad = spec.get('framePadding', 0)
+    if pad:
+        padded = (max(0, x0 - pad), max(0, y0 - pad), min(W, x1 + pad), min(H, y1 + pad))
+        full.paste(im.crop(padded), padded[:2])
     full.paste(crop, (x0, y0))
-    full.save(os.path.join(outdir, f'{room}{suffix}.png'), optimize=True)
+    frame_name = spec.get('frameName', room)
+    full.save(os.path.join(outdir, f'{frame_name}{suffix}.png'), optimize=True)
 
     chk = Image.new('RGBA', crop.size, (255, 0, 200, 255))
     chk.alpha_composite(crop)
@@ -363,7 +370,7 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     print(f'{room + suffix:16s} box={cw}x{ch} sky={pct:5.1f}% '
           f'tol={tol} seedTol={seed_tol} keyDrop={key_drop} coolMin={cool_min} '
           f'green={green_guard} feather={feather} fill={fill_holes} night={night} '
-          f'keep={len(spec.get("keep", []))} -> {room}{suffix}.png')
+          f'keep={len(spec.get("keep", []))} -> {frame_name}{suffix}.png')
     return pct, (cw, ch), im.size, found
 
 
@@ -381,7 +388,9 @@ def main():
     for room in rooms:
         sp = specs[room]
         _, _, art_size, day_sky = cut(room, sp, a.out, a.shots)
-        night = f'/weather/{room}.png?v={ASSET_V}'
+        asset_v = sp.get('assetVersion', ASSET_V)
+        frame_name = sp.get('frameName', room)
+        night = f'/weather/{frame_name}.png?v={asset_v}'
         if sp.get('nightOk') is False:
             # No clean cut of this room's night art exists, so it simply has
             # no weather after dark. A leak is worse than an absence.
@@ -389,8 +398,8 @@ def main():
         elif sp.get('nightArt'):
             cut(room, sp, a.out, a.shots, art=sp['nightArt'], suffix='_night',
                 only=day_sky)
-            night = f'/weather/{room}_night.png?v={ASSET_V}'
-        meta[room] = dict(box=sp['box'], art=art_size, night=night)
+            night = f'/weather/{frame_name}_night.png?v={asset_v}'
+        meta[room] = dict(box=sp['box'], art=art_size, night=night, version=asset_v, frame=frame_name)
 
     if a.rooms:
         return
@@ -443,7 +452,7 @@ def emit_ts(specs, meta):
         L.append(f"    label: '{lab}',")
         L.append(f"    art: {{ w: {m['art'][0]}, h: {m['art'][1]} }},")
         L.append(f"    box: {{ l: {b[0]}, t: {b[1]}, w: {b[2]}, h: {b[3]} }},")
-        L.append(f"    day: '/weather/{r}.png?v={ASSET_V}',")
+        L.append(f"    day: '/weather/{m['frame']}.png?v={m['version']}',")
         L.append(f"    night: {repr(night) if night else 'null'},".replace(chr(39) + '/', chr(39) + '/'))
         L.append('  },')
     L.append('}')

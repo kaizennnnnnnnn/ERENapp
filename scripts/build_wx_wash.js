@@ -37,7 +37,7 @@ const { WEATHER, roomIsNightOnly } = load('src/lib/weather.ts', '_weather.wash.j
 const VW = 400, VH = 850
 // The day painting behind each window cut.
 const ART = { home: 'livingRoom.png', feed: 'kitchen.png', play: 'playroom.png',
-  sleep: 'bedroom.png', wash: 'bathroom.png', chemistry: 'ChemistryDay.png',
+  sleep: 'bedroom.png', wash: 'bathroom.png', chemistry: 'lab-botanical-day.png',
   talk: 'AtticDay.png' }
 
 const ids = process.argv.slice(2).filter(a => !a.startsWith('--'))
@@ -67,7 +67,7 @@ function cell(id, room) {
   const file = f => 'file://' + path.join(ROOT, 'public', f).split(path.sep).join('/')
   const artFile = path.join(ROOT, 'public', ART[room] || '')
   const art = fs.existsSync(artFile) ? file(ART[room]) : ''
-  const cut = file('weather/' + room + (lit ? '' : '') + '.png')
+  const cut = file(win.day.slice(1).split('?')[0])
 
   return `<div class="cell"><div class="lbl">${room}</div>`
     + `<div class="crop" style="width:${cw}px;height:${ch}px">`
