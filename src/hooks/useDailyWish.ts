@@ -328,7 +328,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
         if (!wasGranted && next.granted_at && payload.eventType === 'UPDATE') {
           try {
             window.dispatchEvent(new CustomEvent('eren:wish-granted', {
-              detail: { wishId: next.wish_id, by: next.granted_by, coinsPaid: next.coins_paid },
+              detail: { wishId: next.wish_id, by: next.granted_by, coinsPaid: next.coins_paid, householdId: opts.householdId },
             }))
           } catch { /* ignore */ }
         }
@@ -387,7 +387,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     // by checking `wasGranted` against the row state before the UPDATE.
     try {
       window.dispatchEvent(new CustomEvent('eren:wish-granted', {
-        detail: { wishId: wish.id, by: opts.userId, coinsPaid: wish.coinReward },
+      detail: { wishId: wish.id, by: opts.userId, coinsPaid: wish.coinReward, householdId: opts.householdId },
       }))
     } catch { /* ignore */ }
 

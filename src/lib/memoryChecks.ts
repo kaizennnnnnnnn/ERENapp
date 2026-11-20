@@ -3,11 +3,10 @@
 //
 // Two entry points:
 //
-//   • checkOnEventUnlocks(supabase, evt)
+//   • createMemoryEventCheck(supabase, householdId, userId)
 //       Called inside the app whenever an action fires (care, nudge, minigame,
-//       wish-grant, pet, message, mood). Pulls a small counter snapshot, runs
-//       every on-event predicate against it, and attempts to unlock each
-//       matching frame. tryUnlock's CAS dedupes.
+//       wish-grant, pet, message, mood). Reads only the counters relevant to
+//       that batch of events. tryUnlock's CAS dedupes matching unlocks.
 //
 //   • runMemorySweep(supabase, householdId, today)
 //       Called from /api/decay per household. Owns sweep-only predicates:
@@ -24,245 +23,93 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { MEMORY_FRAMES, type ActionType, type Predicate } from './memoryCatalogue'
 import { tryUnlock } from './memoryUnlocks'
+import { createMemoryCounterReader, memoryRead, type MemoryCounter } from './memoryCounters'
 import { PLAYABLE_MINIGAME_IDS } from '@/lib/minigames'
 
 // ─── Event-context inputs ────────────────────────────────────────────────────
 
 export type UnlockEvent =
-  | { type: 'action',   householdId: string, userId: string, actionType: ActionType }
-  | { type: 'pet',      householdId: string, userId: string }
-  | { type: 'nudge',    householdId: string, userId: string }
-  | { type: 'minigame', householdId: string, userId: string }
-  | { type: 'wish',     householdId: string, userId: string }
-  | { type: 'message',  householdId: string, userId: string }
-  | { type: 'mood',     householdId: string, userId: string }
+  | { type: 'action', actionType: ActionType }
+  | { type: 'wish', by?: string }
+  | { type: 'pet' | 'nudge' | 'delivery' | 'minigame' | 'message' | 'mood' }
 
-interface OnEventCounters {
-  totalCares:    number
-  caresByType:   Record<ActionType, number>
-  /** Distinct user_ids who logged at least one interaction today. */
-  todayUserIds:  Set<string>
-  /** Lifetime nudges sent across the household (couple_journal via_eren). */
-  nudgesTotal:   number
-  /** Per-sender nudge counts, for couple:nudges_traded_* checks. */
-  nudgesBySender: Record<string, number>
-  /** Lifetime minigame completions. */
-  minigamesTotal: number
-  /** Lifetime wishes granted (households.wishes_granted_count). */
-  wishesTotal:   number
-}
+const FRAME_REFRESH_MS = 60_000
 
-// ─── Counter snapshot ────────────────────────────────────────────────────────
-
-function todayStartISO(): string {
-  const d = new Date()
-  d.setUTCHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
-/** Fetches the ids of every frame already unlocked for this household so the
- *  caller can skip them entirely. Without this pre-filter we POST to
- *  memory_frames for every matching predicate every action — every active
- *  household quickly piles up dozens of 23505 conflicts per care action,
- *  which Supabase's fetch returns as visible 409s in DevTools. The CAS is
- *  still the source of truth; this just keeps the wire quiet. */
 async function fetchUnlockedFrameIds(
   supabase: SupabaseClient,
   householdId: string,
+  signal?: AbortSignal,
 ): Promise<Set<string>> {
-  const { data } = await supabase
-    .from('memory_frames')
-    .select('frame_id')
-    .eq('household_id', householdId)
-  const set = new Set<string>()
-  for (const row of (data ?? []) as Array<{ frame_id: string }>) set.add(row.frame_id)
-  return set
+  const query = () => supabase.from('memory_frames').select('frame_id').eq('household_id', householdId)
+  const { data, error } = signal ? await memoryRead(signal, s => query().abortSignal(s)) : await query()
+  if (error) throw new Error('Could not read unlocked memories')
+  return new Set((data ?? []).map(row => row.frame_id as string))
 }
 
-async function fetchOnEventCounters(
-  supabase: SupabaseClient,
-  householdId: string,
-): Promise<OnEventCounters> {
-  const todayStart = todayStartISO()
-
-  // game_scores has user_id, not household_id — so we need this household's
-  // member ids first to filter the score count. Fetch the profile ids before
-  // the parallel batch.
-  const { data: profileRows } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('household_id', householdId)
-  const memberIds = (profileRows ?? []).map(p => (p as { id: string }).id)
-
-  // Server-side exact counts (head: true → no rows on the wire) instead of
-  // downloading the household's entire lifetime interactions + journal
-  // history on every action. Only today's interactions come back as rows.
-  const ACTION_TYPES: ActionType[] = ['feed', 'play', 'sleep', 'wash', 'medicine']
-  const [totalRes, typeResList, todayRes, nudgeTotalRes, nudgeSenderResList, gamesRes, householdRes] = await Promise.all([
-    supabase.from('interactions').select('*', { count: 'exact', head: true })
-      .eq('household_id', householdId),
-    Promise.all(ACTION_TYPES.map(t =>
-      supabase.from('interactions').select('*', { count: 'exact', head: true })
-        .eq('household_id', householdId).eq('action_type', t))),
-    supabase.from('interactions').select('user_id')
-      .eq('household_id', householdId).gte('created_at', todayStart),
-    supabase.from('couple_journal').select('*', { count: 'exact', head: true })
-      .eq('household_id', householdId).eq('via_eren', true),
-    Promise.all(memberIds.map(id =>
-      supabase.from('couple_journal').select('*', { count: 'exact', head: true })
-        .eq('household_id', householdId).eq('via_eren', true).eq('sender_id', id))),
-    memberIds.length
-      ? supabase.from('game_scores')
-          .select('id', { count: 'exact', head: true })
-          .in('user_id', memberIds)
-      : Promise.resolve({ count: 0 } as { count: number | null }),
-    supabase.from('households')
-      .select('wishes_granted_count')
-      .eq('id', householdId)
-      .maybeSingle(),
-  ])
-
-  const caresByType: Record<ActionType, number> = { feed: 0, play: 0, sleep: 0, wash: 0, medicine: 0 }
-  ACTION_TYPES.forEach((t, i) => { caresByType[t] = typeResList[i].count ?? 0 })
-
-  const todayUserIds = new Set<string>()
-  for (const row of (todayRes.data ?? []) as Array<{ user_id: string }>) todayUserIds.add(row.user_id)
-
-  // Only >0 entries, mirroring the old row-derived map so callers that check
-  // Object.keys(...).length see identical semantics.
-  const nudgesBySender: Record<string, number> = {}
-  memberIds.forEach((id, i) => {
-    const c = nudgeSenderResList[i].count ?? 0
-    if (c > 0) nudgesBySender[id] = c
-  })
-
-  return {
-    totalCares:     totalRes.count ?? 0,
-    caresByType,
-    todayUserIds,
-    nudgesTotal:    nudgeTotalRes.count ?? 0,
-    nudgesBySender,
-    minigamesTotal: gamesRes.count ?? 0,
-    wishesTotal:    (householdRes.data?.wishes_granted_count as number | undefined) ?? 0,
-  }
-}
-
-// ─── Predicate evaluation (on-event) ─────────────────────────────────────────
-
-/** Returns true if this predicate is evaluated by the sweep instead of the
- *  on-event entry point. */
-function isSweepPredicate(p: Predicate): boolean {
-  // 'seed' is neither on-event nor sweep — only the catchup endpoint touches
-  // it. Returning true here makes the on-event evaluator skip it; the sweep
-  // loop has its own switch that ignores anything not in its case list.
-  if (p.type === 'seed') return true
-  return p.type === 'streak' || p.type === 'calendar' || p.type === 'rare'
-    || (p.type === 'couple' && (p.kind === 'both_cared_7_streak' || p.kind === 'first_paired'))
-}
-
-function matchesOnEvent(
-  p: Predicate,
-  counters: OnEventCounters,
-  evt: UnlockEvent,
-): boolean {
+function relevantCounter(p: Predicate, events: UnlockEvent[]): MemoryCounter | null {
+  const has = (type: UnlockEvent['type']) => events.some(event => event.type === type)
   switch (p.type) {
-    case 'first': {
-      // First-of-its-kind frames fire on the event that introduces the kind.
-      // The CAS on memory_frames PK prevents repeat unlocks, so we can be
-      // permissive about firing and let the DB enforce uniqueness.
-      switch (p.of) {
-        case 'feed': case 'play': case 'sleep': case 'wash': case 'medicine':
-          return evt.type === 'action' && evt.actionType === p.of
-        case 'pet':      return evt.type === 'pet'
-        case 'nudge':    return evt.type === 'nudge'
-        case 'wish':     return evt.type === 'wish'
-        case 'minigame': return evt.type === 'minigame'
-        case 'message':  return evt.type === 'message'
-        case 'mood':     return evt.type === 'mood'
-        case 'day':      return true   // any first event qualifies; CAS dedupes after first unlock
-      }
-      return false
-    }
-    case 'cares':
-      return counters.totalCares >= p.count
-    case 'metric':
-      return counters.caresByType[p.metric] >= p.count
-    case 'nudges':
-      return counters.nudgesTotal >= p.count
-    case 'wishes':
-      return counters.wishesTotal >= p.count
-    case 'minigames':
-      return counters.minigamesTotal >= p.count
-    case 'couple': {
-      if (p.kind === 'both_cared_same_day') return counters.todayUserIds.size >= 2
+    case 'cares': return has('action') ? 'cares' : null
+    case 'metric': return events.some(e => e.type === 'action' && e.actionType === p.metric) ? p.metric : null
+    case 'wishes': return has('wish') ? 'wishes' : null
+    case 'minigames': return has('minigame') ? 'games' : null
+    case 'nudges': return has('nudge') || has('delivery') ? 'nudges' : null
+    case 'couple':
+      if (p.kind === 'both_cared_same_day') return has('action') ? 'both-care' : null
       if (p.kind === 'nudges_traded_10' || p.kind === 'nudges_traded_50') {
-        const target = p.kind === 'nudges_traded_10' ? 10 : 50
-        const senders = Object.values(counters.nudgesBySender)
-        if (senders.length < 2) return false
-        return senders.every(n => n >= target)
+        return has('nudge') || has('delivery') ? 'traded' : null
       }
-      return false
-    }
-    // Sweep predicates — handled in runMemorySweep, never matched here.
-    case 'streak':
-    case 'calendar':
-    case 'rare':
-    case 'seed':
-      return false
   }
+  return null
 }
 
-// ─── Public entry point: on-event ────────────────────────────────────────────
-
-export async function checkOnEventUnlocks(
-  supabase: SupabaseClient,
-  evt: UnlockEvent,
-): Promise<void> {
-  // The already-unlocked set is one indexed lookup; the counter snapshot below
-  // is thirteen round trips, five of them lifetime COUNT(*)s over the whole
-  // interactions table. Fetch the cheap one FIRST and bail when there is
-  // nothing left it could unlock — otherwise every care action, every pet (1.5s
-  // cooldown) and every message keeps paying for the expensive one forever,
-  // and the cost grows with the household's accumulated history.
-  let already: Set<string>
-  try {
-    already = await fetchUnlockedFrameIds(supabase, evt.householdId)
-  } catch (err) {
-    if (typeof console !== 'undefined') {
-      console.warn('[memoryChecks] fetchUnlockedFrameIds failed', err)
-    }
-    return
+function threshold(p: Predicate): number {
+  if ('count' in p) return p.count
+  if (p.type === 'couple') {
+    if (p.kind === 'both_cared_same_day') return 2
+    if (p.kind === 'nudges_traded_10') return 10
+    if (p.kind === 'nudges_traded_50') return 50
   }
+  return Infinity
+}
 
-  // Derived from the catalogue rather than hardcoded, so adding an on-event
-  // frame later automatically re-opens this path for households that had
-  // already finished the old catalogue.
-  const anythingLeft = MEMORY_FRAMES.some(
-    f => !already.has(f.id) && !isSweepPredicate(f.predicate),
-  )
-  if (!anythingLeft) return
+export function createMemoryEventCheck(supabase: SupabaseClient, householdId: string, userId: string) {
+  const counters = createMemoryCounterReader(supabase, householdId)
+  let unlocked = new Set<string>()
+  let refreshedAt = -Infinity
 
-  let counters: OnEventCounters
-  try {
-    counters = await fetchOnEventCounters(supabase, evt.householdId)
-  } catch (err) {
-    if (typeof console !== 'undefined') {
-      console.warn('[memoryChecks] fetchOnEventCounters failed', err)
-    }
-    return
-  }
-
-  for (const frame of MEMORY_FRAMES) {
-    if (already.has(frame.id)) continue
-    if (isSweepPredicate(frame.predicate)) continue
-    if (!matchesOnEvent(frame.predicate, counters, evt)) continue
-    await tryUnlock(supabase, {
-      householdId: evt.householdId,
-      frameId:     frame.id,
-      kind:        frame.kind,
-      rarity:      frame.rarity,
-      unlockedBy:  evt.userId,
+  return async (events: UnlockEvent[], signal: AbortSignal): Promise<void> => {
+    const candidates = MEMORY_FRAMES.flatMap<{ frame: typeof MEMORY_FRAMES[number]; key: MemoryCounter | null; by: string }>(frame => {
+      if (unlocked.has(frame.id)) return []
+      const p = frame.predicate
+      if (p.type === 'first') {
+        const event = events.find(e => (p.of === 'day' && e.type !== 'delivery') || p.of === (e.type === 'action' ? e.actionType : e.type))
+        return event ? [{ frame, key: null, by: event.type === 'wish' ? event.by ?? userId : userId }] : []
+      }
+      const key = relevantCounter(p, events)
+      const wish = key === 'wishes' ? events.find(e => e.type === 'wish') : undefined
+      return key ? [{ frame, key, by: wish?.type === 'wish' ? wish.by ?? userId : userId }] : []
     })
+    if (!candidates.length) return
+    if (Date.now() - refreshedAt >= FRAME_REFRESH_MS) {
+      unlocked = await fetchUnlockedFrameIds(supabase, householdId, signal)
+      refreshedAt = Date.now()
+    }
+
+    const remaining = candidates.filter(({ frame }) => !unlocked.has(frame.id))
+    const unlock = async (frame: typeof MEMORY_FRAMES[number], by: string) => {
+      await memoryRead(signal, s => tryUnlock(supabase, {
+        householdId, frameId: frame.id, kind: frame.kind, rarity: frame.rarity, unlockedBy: by,
+      }, s))
+      unlocked.add(frame.id)
+    }
+    // Firsts are supported by the saved event itself, even if a counter read fails.
+    for (const { frame, key, by } of remaining) if (!key) await unlock(frame, by)
+    const keys = Array.from(new Set(remaining.flatMap(({ key }) => key ? [key] : [])))
+    const counts = await counters(keys, signal)
+    for (const { frame, key, by } of remaining) {
+      if (key && (counts[key] ?? 0) >= threshold(frame.predicate)) await unlock(frame, by)
+    }
   }
 }
 

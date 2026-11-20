@@ -37,11 +37,12 @@ const PG_UNIQUE_VIOLATION = '23505'
 /** Insert a memory_frames row. Returns true when this call won the race
  *  (newly unlocked), false when the frame was already unlocked.
  *
- *  Any non-conflict error is swallowed and logged — Memory Wall is best-effort,
- *  a missed unlock here shouldn't break the action that triggered it. */
+ *  Non-conflict errors are best-effort for sweeps. The in-app queue supplies
+ *  a signal and retains failed unlocks for retry. */
 export async function tryUnlock(
   supabase: SupabaseClient,
   args: TryUnlockArgs,
+  signal?: AbortSignal,
 ): Promise<boolean> {
   const row: Record<string, unknown> = {
     household_id: args.householdId,
@@ -53,14 +54,16 @@ export async function tryUnlock(
   }
   if (args.unlockedAt) row.unlocked_at = args.unlockedAt
 
-  const { data, error } = await supabase
+  const query = supabase
     .from('memory_frames')
     .insert(row)
     .select('frame_id')
-    .maybeSingle()
+  const { data, error } = await (signal ? query.abortSignal(signal) : query).maybeSingle()
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) return false
+    // The in-app queue retains failed work; sweeps remain best-effort.
+    if (signal) throw new Error(error.message)
     // Real failure (RLS denial, network, schema mismatch) — log & swallow.
     if (typeof console !== 'undefined') {
       console.warn('[memoryUnlocks] tryUnlock failed', args.frameId, error.message)
@@ -68,7 +71,11 @@ export async function tryUnlock(
     return false
   }
 
-  if (!data) return false
+  if (signal?.aborted) return false
+  if (!data) {
+    if (signal) throw new Error('Memory unlock was not confirmed')
+    return false
+  }
 
   // Newly unlocked — let the in-app UI animate immediately. The push-batching
   // queue is filled by the DB trigger, so we don't dispatch the wall refresh

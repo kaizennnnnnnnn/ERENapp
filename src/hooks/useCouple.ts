@@ -432,13 +432,8 @@ function useCoupleImpl() {
       console.error('[useCouple] message insert failed', error)
       return false
     }
-    // Memory Wall: signal first:message + any future message-frame predicates.
-    // Skip the dispatch when this row is actually a nudge (via_eren) — those
-    // already unlock first:nudge via the eren:nudge-sent event, no need to
-    // double-fire first:message on the same insert.
-    if (!viaEren) {
-      try { window.dispatchEvent(new Event('eren:message-sent')) } catch { /* ignore */ }
-    }
+    // A written note or gift contributes to delivery totals, not first chat.
+    try { window.dispatchEvent(new Event(viaEren ? 'eren:journal-delivered' : 'eren:message-sent')) } catch { /* ignore */ }
     // Fire-and-forget web-push to the partner. Works even when their PWA is
     // fully closed; the in-app realtime channel only fires when their tab is
     // alive, so this is the only path that covers a backgrounded-and-killed
